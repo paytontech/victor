@@ -19,102 +19,102 @@
     ]
   },
   "behavior.DevTest1": {
-    "translation": "I am Vector"
+    "translation": "Ich bin Vector"
   },
   "behavior.DevTest2": {
-    "translation": "I am {0}"
+    "translation": "Ich bin {0}"
   },
   "BehaviorDisplayWeather.Cloudy": {
-    "translation": "{0} degrees and cloudy"
+    "translation": "{0} Grad und bewolkt"
   },
   "BehaviorDisplayWeather.Cold": {
-    "translation": "{0} degrees and cold"
+    "translation": "{0} Grad und kalt"
   },
   "BehaviorDisplayWeather.Rain": {
-    "translation": "{0} degrees and raining"
+    "translation": "{0} Grad und regnerisch"
   },
   "BehaviorDisplayWeather.Snow": {
-    "translation": "{0} degrees and snowing"
+    "translation": "{0} Grad und es schneit"
   },
   "BehaviorDisplayWeather.Stars": {
-    "translation": "{0} degrees and clear"
+    "translation": "{0} Grad und klar"
   },
   "BehaviorDisplayWeather.Sunny": {
-    "translation": "{0} degrees and sunny"
+    "translation": "{0} Grad und sonnig"
   },
   "BehaviorDisplayWeather.Thunderstorms": {
-    "translation": "{0} degrees with thunderstorms"
+    "translation": "{0} Grad mit Gewittern"
   },
   "BehaviorDisplayWeather.Windy": {
-    "translation": "{0} degrees and windy"
+    "translation": "{0} Grad und windig"
   },
   "BehaviorEnrollFace.HaveWeMetBefore": {
-    "translation": "Have we met before, {0}?"
+    "translation": "Haben wir uns schon mal getroffen, {0}?"
   },
   "BehaviorEnrollFace.AlreadyKnowVowelName": {
-    "translation": "I already know an {0}"
+    "translation": "Ich kenne bereits ein {0}"
   },
   "BehaviorEnrollFace.AlreadyKnowConsonantName": {
-    "translation": "I already know a {0}"
+    "translation": "Ich kenne bereits ein {0}"
   },
   "BehaviorEnrollFace.AlreadyKnowYou": {
-    "translation": "I already know you!"
+    "translation": "Ich kenne dich bereits!"
   },
   "BehaviorEnrollFace.AlreadyKnowFace": {
-    "translation": "You're {0}, not {1}"
+    "translation": "Du bist {0}, nicht {1}"
   },
   "BehaviorHowOldAreYou.OneDay": {
-    "translation": "One day"
+    "translation": "Ein Tag"
   },
   "BehaviorHowOldAreYou.SomeDays": {
-    "translation": "{0} days"
+    "translation": "{0} Tage"
   },
   "BehaviorHowOldAreYou.OneMonth": {
-    "translation": "One month"
+    "translation": "Ein Monat"
   },
   "BehaviorHowOldAreYou.SomeMonths": {
-    "translation": "{0} months"
+    "translation": "{0} Monate"
   },
   "BehaviorKnowledgeGraphQuestion.Ready": {
-    "translation": "Ready"
+    "translation": "Bereit"
   },
   "BehaviorLeaveAMessage.NoRecipient": {
-    "translation": "I did not hear the name"
+    "translation": "Ich habe den Namen nicht gehört"
   },
   "BehaviorLeaveAMessage.UnknownRecipient": {
-    "translation": "I do not know a {0}"
+    "translation": "Ich kenne kein {0}"
   },
   "BehaviorLeaveAMessage.MailboxFull": {
-    "translation": "Voice mailbox is full"
+    "translation": "Sprachnachrichtenbox ist voll"
   },
   "BehaviorPlaybackMessage.AnnounceSingle": {
-    "translation": "One message for {0}"
+    "translation": "Eine Nachricht für {0}"
   },
   "BehaviorPlaybackMessage.AnnouncePlural": {
-    "translation": "{1} messages for {0}"
+    "translation": "{1} Nachrichten für {0}"
   },
   "BehaviorPlaybackMessage.NoRecipient": {
-    "translation": "I did not hear the name"
+    "translation": "Ich habe den Namen nicht gehört"
   },
   "BehaviorPlaybackMessage.NoMessages": {
-    "translation": "I have no messages for {0}"
+    "translation": "Ich habe keine Nachrichten für {0}"
   },
   "BehaviorSayName.DontKnow": {
-    "translation": "I don't know"
+    "translation": "Ich wei es nicht"
   },
   "DevTestPromptUser.VocalPrompt": {
-    "translation": "Test Prompt: say a command"
+    "translation": "Testaufforderung: Sagen Sie einen Befehl"
   },
   "DevTestPromptUser.VocalResponseToIntent": {
-    "translation": "Got an intent"
+    "translation": "Absicht erhalten"
   },
   "DevTestPromptUser.VocalResponseToBadIntent": {
-    "translation": "Didn't get an intent"
+    "translation": "Keine Absicht erhalten"
   },
-  "DevTestPromptUser.VocalReprompt" : {
-    "translation": "Try again"
+  "DevTestPromptUser.VocalReprompt": {
+    "translation": "Versuchen Sie es erneut"
   },
   "UserDefinedBehaviorTree.ConfirmNewBehavior": {
-    "translation": "Do you like this reaction?"
+    "translation": "Magst du diese Reaktion?"
   }
 }

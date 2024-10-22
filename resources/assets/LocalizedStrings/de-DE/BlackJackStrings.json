@@ -19,54 +19,54 @@
     ]
   },
   "BlackJack.DealerGoodLuck": {
-    "translation": "Good luck!"
+    "translation": "Viel Glück!"
   },
   "BlackJack.DealerScore": {
     "translation": "{0}"
   },
   "BlackJack.DealerScoreBusted": {
-    "translation": "{0}. Dealer busted."
+    "translation": "{0}. Dealer überkauft."
   },
   "BlackJack.DealerScorePush": {
-    "translation": "{0}. Push."
+    "translation": "{0}. Unentschieden."
   },
   "BlackJack.DealerScoreDealerWins": {
-    "translation": "{0}. Dealer wins!"
+    "translation": "{0}. Dealer gewinnt!"
   },
   "BlackJack.DealerScorePlayerWins": {
-    "translation": "{0}. You win!"
+    "translation": "{0}. Du gewinnst!"
   },
   "BlackJack.DealerTwentyOne": {
     "translation": "21!"
   },
   "BlackJack.DealerTurn": {
-    "translation": "Dealer's turn!"
+    "translation": "Der Dealer ist dran!"
   },
   "BlackJack.DrawQuestion": {
-    "translation": "Another card?"
+    "translation": "Noch eine Karte?"
   },
   "BlackJack.PlayQuestion": {
-    "translation": "Play BlackJack?"
+    "translation": "BlackJack spielen?"
   },
   "BlackJack.PlayAgainQuestion": {
-    "translation": "Play another round?"
+    "translation": "Noch eine Runde spielen?"
   },
   "BlackJack.PlayerScore": {
     "translation": "{0}"
   },
   "BlackJack.PlayerScoreBusted": {
-    "translation": "{0}. You busted!"
+    "translation": "{0}. Du hast uberkauft!"
   },
   "BlackJack.PlayerTwentyOne": {
     "translation": "21!"
   },
   "BlackJack.PlayerWinsBlackJack": {
-    "translation": "BlackJack, you win!"
+    "translation": "BlackJack, du gewinnst!"
   },
   "BlackJack.PlayerWinsNaturalBlackJack": {
     "translation": "BlackJack!"
   },
   "BlackJack.PlayerWinsFiveCardCharlie": {
-    "translation": "5 Card Charlie! You win!"
+    "translation": "5-Karten-Charlie! Du gewinnst!"
   }
 }
