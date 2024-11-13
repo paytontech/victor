@@ -16,7 +16,8 @@ enum uint_16 BehaviorID {
   Wait_TestInjectable,
 
   // devBehaviors
-  AcousticTestMode,
+  CubeDrive,
+  CubeDriveCoordinator,
   DevBaseBehavior,
   DevBatteryLogging,
   DevCubeSpinner,
