@@ -17,7 +17,7 @@
 #include "coretech/common/engine/utils/timer.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/iCozmoBehavior.h"
 #include "engine/cozmoObservableObject.h"
-#include "coretech/vision/engine/image_impl.h"
+#include "coretech/vision/engine/image_fwd.h"
 
 #include <chrono>
 #include <memory>

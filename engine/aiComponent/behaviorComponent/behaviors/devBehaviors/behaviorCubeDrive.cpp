@@ -12,7 +12,7 @@
 
 #include "anki/cozmo/shared/cozmoConfig.h"
 #include "clad/types/activeObjectAccel.h"
-#include "engine/activeObject.h"
+#include "engine/block.h"
 #include "engine/aiComponent/behaviorComponent/behaviorExternalInterface/beiRobotInfo.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorCubeDrive.h"
 #include "engine/blockWorld/blockWorld.h"
