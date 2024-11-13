@@ -41,7 +41,7 @@
   {
   public:
     static const char* CpuProfilerLogging() {
-      return "Never,1ms,2ms,4ms,8ms,16ms,32ms";
+      return "Never,Every tick,Every 2 ticks,Every 4 ticks,Every 8 ticks,Every 16 ticks,Every 32 ticks";
     }
     
     static uint32_t CpuProfilerLoggingTime(int option) {
@@ -262,36 +262,17 @@
 #else  // ANKI_CPU_PROFILER_ENABLED
 
 
-#define ANKI_CPU_PROFILE(name) do {                \
-  tracelog(TRACE_DEBUG, "CPU_PROFILE");                     \
-  Util::DropBreadcrumb(false, __FILE__, __LINE__); \
-} while(0)
+#define ANKI_CPU_PROFILE(name) 
 
-#define ANKI_CPU_PROFILE_START(varName, name) {    \
-  tracelog(TRACE_DEBUG, "CPU_PROFILE_START %s %s", varName, name);   \
-  Util::DropBreadcrumb(false, __FILE__, __LINE__); \
-} while(0)
+#define ANKI_CPU_PROFILE_START(varName, name) 
 
-#define ANKI_CPU_PROFILE_STOP(varName) do {        \
-  tracelog(TRACE_DEBUG, "CPU_PROFILE_STOP %s", varName); \
-  Util::DropBreadcrumb(false, __FILE__, __LINE__); \
-} while(0)
+#define ANKI_CPU_PROFILE_STOP(varName) 
 
-#define ANKI_CPU_TICK(tickName, maxTickTime_ms, logFreq) do { \
-  tracelog(TRACE_DEBUG, "CPU_TICK");                \
-  Util::DropBreadcrumb(false, __FILE__, __LINE__);            \
-} while(0)
+#define ANKI_CPU_TICK(tickName, maxTickTime_ms, logFreq) 
 
-#define ANKI_CPU_TICK_ONE_TIME(tickName) do {      \
-  tracelog(TRACE_DEBUG, "CPU_TICK_ON_TIME %s",tickName);  \
-  Util::DropBreadcrumb(false, __FILE__, __LINE__); \
-} while(0)
+#define ANKI_CPU_TICK_ONE_TIME(tickName) 
 
-#define ANKI_CPU_REMOVE_THIS_THREAD() do {         \
-  tracelog(TRACE_DEBUG, "CPU_REMOVE_THIS_THREAD");                 \
-  Util::DropBreadcrumb(false, __FILE__, __LINE__); \
-} while(0)
-
+#define ANKI_CPU_REMOVE_THIS_THREAD() 
 
 #endif // ANKI_CPU_PROFILER_ENABLED
 

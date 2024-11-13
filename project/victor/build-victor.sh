@@ -133,6 +133,29 @@ shift $(($OPTIND - 1))
 cd ${TOPLEVEL}
 
 #
+# Verify tflite files were downloaded correctly via git lfs
+#
+
+function usage_fix_lfs() {
+    echo "$1 is not a valid .tflite file!!!"
+    echo "Probably a problem with your git lfs setup.  Try the following to fix it...."
+    echo ""
+    echo "git lfs uninstall  # Remove Git LFS hooks and filters"
+    echo "rm $f              # Delete borked file"
+    echo "git stash          # Save your work in progress"
+    echo "git reset --hard   # This will wipe out your work in progress, hope you stashed"
+    echo "git lfs install    # Install Git LFS configuration"
+    echo "git lfs pull       # Fetch Git LFS changes from remote & checkout required files"
+    echo "git stash apply    # This will grab changes from your stash"
+    exit 1
+}
+
+for f in `git ls-files *.tflite`; do
+    egrep -q TFL3 $f || usage_fix_lfs $f
+done
+
+
+#
 # settings
 #
 
@@ -212,17 +235,6 @@ for feature in ${FEATURES} ; do
   esac
 done
 
-# Until the coretech-external (CTE) build works again (BI-1614), copy the Alexa
-# SDK libs and headers from artifactory into where CTE build artifacts normally
-# live. Only copy src files if changed, and delete any dst files not in src.
-rsync -raz --delete \
-  ${TOPLEVEL}/EXTERNALS/avs-device-sdk/avs-device-sdk \
-  ${TOPLEVEL}/EXTERNALS/coretech_external/build/
-# same thing for pffft
-rsync -raz --delete \
-  ${TOPLEVEL}/EXTERNALS/pffft/pffft \
-  ${TOPLEVEL}/EXTERNALS/coretech_external/build/
-
 #
 # Get short commit sha
 #
@@ -285,7 +297,7 @@ if [ -z "${GOROOT+x}" ]; then
 else
     GO_EXE=$GOROOT/bin/go
 fi
-export GOPATH=${TOPLEVEL}/cloud/go:${TOPLEVEL}/generated/cladgo:${TOPLEVEL}/generated/go:${TOPLEVEL}/tools/message-buffers/support/go
+export GOPATH=${TOPLEVEL}/cloud/go:${TOPLEVEL}/generated/cladgo:${TOPLEVEL}/generated/go:${TOPLEVEL}/victor-clad/tools/message-buffers/support/go
 
 if [ ! -f ${GO_EXE} ]; then
   echo "Missing Go executable: ${GO_EXE}"
@@ -329,20 +341,36 @@ if [ $IGNORE_EXTERNAL_DEPENDENCIES -eq 0 ] || [ $CONFIGURE -eq 1 ] ; then
       ${METABUILD_INPUTS}
 fi
 
-if [ $IGNORE_EXTERNAL_DEPENDENCIES -eq 0 ]; then
-  echo "Getting Go dependencies"
-  # Check out specified revisions of repositories we've versioned
-  # Append a dummy dir to the GOPATH so that `go get` doesn't barf
-  # on nonexistent clad files
-  GODUMMY=${TOPLEVEL}/cloud/dummy
-  (cd ${TOPLEVEL}; PATH="$(dirname $GO_EXE):$PATH" GOPATH="$GOPATH:$GODUMMY" ./godeps.js execute ${GEN_SRC_DIR})
-else
-  echo "Ignore Go dependencies"
+# Set protobuf location
+HOST=`uname -a | awk '{print tolower($1);}' | sed -e 's/darwin/mac/'`
+PROTOBUF_HOME=${TOPLEVEL}/3rd/protobuf/${HOST}
+
+# Build protocCppPlugin if needed
+if [[ ! -x ${TOPLEVEL}/tools/protobuf/plugin/protocCppPlugin ]]; then
+  BUILD_PROTOC_PLUGIN=1
+else 
+  BUILD_PROTOC_PLUGIN=0
+  for f in `find ${TOPLEVEL}/tools/protobuf/plugin -type f`; do
+    if [ "$f" -nt ${TOPLEVEL}/tools/protobuf/plugin/protocCppPlugin ]; then
+      BUILD_PROTOC_PLUGIN=1
+    fi
+  done
+fi
+if [[ $BUILD_PROTOC_PLUGIN -eq 1 ]]; then
+    ${TOPLEVEL}/tools/protobuf/plugin/make.sh
 fi
 
-# install build tool binaries + set protoc location
-PROTOC_EXE=`${TOPLEVEL}/tools/build/tools/ankibuild/protobuf.py --install --helpers | tail -1`
-PROTOBUF_HOME=`cd $(dirname "${PROTOC_EXE}")/.. && pwd`
+# Build/Install the protoc generators for go
+GOBIN="${TOPLEVEL}/cloud/go/bin"
+if [[ ! -x $GOBIN/protoc-gen-go ]] || [[ ! -x $GOBIN/protoc-gen-grpc-gateway ]]; then
+    echo "Building/Installing protoc-gen-go and protoc-gen-grpc-gateway"
+    GOBIN=$GOBIN \
+    CC=/usr/bin/cc \
+    CXX=/usr/bin/c++ \
+    "${GOROOT}/bin/go" install \
+    github.com/golang/protobuf/protoc-gen-go \
+    github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+fi
 
 #
 # generate source file lists

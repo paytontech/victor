@@ -1,14 +1,25 @@
+/**
+ * File: cozmoContext.cpp
+ *
+ * Author: Lee Crippen
+ * Created: 1/29/2016
+ *
+ * Description: Holds references to components and systems that are used often by all different parts of code,
+ *              where it is unclear who the appropriate owner of that system would be.
+ *              NOT intended to be a container to hold ALL systems and components, which would simply be lazy.
+ *
+ * Copyright: Anki, Inc. 2016
+ *
+ **/
 
 #include "engine/cozmoContext.h"
 
 #include "coretech/common/engine/utils/data/dataPlatform.h"
-#include "engine/appToEngineHandler.h"
 #include "engine/externalInterface/externalInterface.h"
-#include "engine/perfMetric.h"
+#include "engine/perfMetricEngine.h"
 #include "engine/robotDataLoader.h"
 #include "engine/robotManager.h"
-//#include "engine/util/transferQueue/gameLogTransferTask.h"
-//#include "engine/util/transferQueue/transferQueueMgr.h"
+#include "engine/robotTest.h"
 #include "engine/utils/cozmoExperiments.h"
 #include "engine/utils/cozmoFeatureGate.h"
 #include "engine/viz/vizManager.h"
@@ -41,15 +52,11 @@ CozmoContext::CozmoContext(Util::Data::DataPlatform* dataPlatform, IExternalInte
   , _dataLoader(new RobotDataLoader(this))
   , _robotMgr(new RobotManager(this))
   , _vizManager(new VizManager())
-  //, _transferQueueMgr(new Anki::Util::TransferQueueMgr())
-  //, _gameLogTransferTask(new Anki::Util::GameLogTransferTask())
   , _cozmoExperiments(new CozmoExperiments(this))
-  , _perfMetric(new PerfMetric(this))
+  , _perfMetric(new PerfMetricEngine(this))
   , _webService(new WebService::WebService())
-  , _appToEngineHandler( new AppToEngineHandler() )
+  , _robotTest(new RobotTest(this))
 {
-  //_gameLogTransferTask->Init(_transferQueueMgr.get());
-  _appToEngineHandler->Init( _webService.get(), _externalInterface );
 }
 
 

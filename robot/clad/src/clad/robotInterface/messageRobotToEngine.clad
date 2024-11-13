@@ -23,9 +23,16 @@ namespace RobotInterface {
 
 message SyncRobotAck
 {
+  uint_8 sysconVersion[16] // Must match VersionInfo::app_version in schema/messages.h
 }
 
 message RobotServerDisconnect
+{
+}
+
+// Message for HAL to send to anim when it's taking 
+// a little too long to get data from spine
+message StillAlive
 {
 }
 
@@ -78,7 +85,11 @@ message MicDataState
 // This message indicates that the robot experienced a freefall event
 message FallingEvent {
   uint_32 timestamp,       // When the fall started (as a robot timestamp)
-  uint_32 duration_ms,     // The approximate freefall duration
+  uint_32 duration_ms      // The approximate freefall duration
+}
+
+message FallImpactEvent 
+{
 }
 
 message RobotStopped
@@ -107,7 +118,7 @@ message MotorActionAck
 
 message MicData
 {
-  int_16  data[320], // 80 samples of audio 4 channels
+  int_16  data[640], // one 10ms chunks of 160 samples, times 4 audio channels
   uint_32 timestamp,
   uint_32 robotStatusFlags, // RobotStatusFlag packs as a uint_32
   float_32 robotRotationAngle,
@@ -154,6 +165,11 @@ message StartSelfTest
 
 }
 
+message SendRangeData
+{
+  bool enable
+}
+
 /// *************** Overall message pipe ******************************* ///
 
 /** Pipe from robot to engine.
@@ -188,7 +204,7 @@ union RobotToEngine {
   CliffAlignComplete         cliffAlignComplete     = 0xBD,
 
   // Sensors
-  // FREE SLOT                                      = 0xC1,
+  FallImpactEvent            fallImpactEvent        = 0xC1,
   IMUDataChunk               imuDataChunk           = 0xC2,
   IMURawDataChunk            imuRawDataChunk        = 0xC3,
   IMUTemperature             imuTemperature         = 0xC4,
@@ -202,9 +218,8 @@ union RobotToEngine {
 
   RobotServerDisconnect      robotServerDisconnect  = 0xCD,
 
-  AlexaAuthChanged           alexaAuthChanged       = 0xCE,
+  StillAlive                 stillAlive             = 0xCE,
 
-  AlexaUXChanged             alexaUXChanged         = 0xCF,
 
   // Messages from animation process to engine
   StartShutdownAnim          startShutdownAnim      = 0xD0,
@@ -244,6 +259,16 @@ union RobotToEngine {
   AudioPlaybackEnd           audioPlaybackEnd       = 0xE7,
   MicRecordingComplete       micRecordingComplete   = 0xE8,
   MicDataState               micDataState           = 0xE9,
+
+  SendRangeData              sendRangeData          = 0xEA,
+
+  // SDK Streaming Audio Playback
+  AudioStreamStatusEvent     audioStreamStatusEvent = 0xEB,
+
+  // Alexa
+  AlexaAuthChanged           alexaAuthChanged       = 0xEC,
+  AlexaUXChanged             alexaUXChanged         = 0xED,
+
 
   // ====== 0xF0 to 0x FE: Unreliable message to the Engine =====
   // From robot process

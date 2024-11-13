@@ -1,9 +1,9 @@
 /*
- * File:          cozmoAnim/animEngine.cpp
+ * File:          animEngine.cpp
  * Date:          6/26/2017
  *
  * Description:   A platform-independent container for spinning up all the pieces
- *                required to run Cozmo Animation Process.
+ *                required to run Vector Animation Process.
  *
  * Author: Kevin Yoon
  *
@@ -19,46 +19,38 @@
 #include "cozmoAnim/audio/cozmoAudioController.h"
 #include "cozmoAnim/audio/microphoneAudioClient.h"
 #include "cozmoAnim/audio/engineRobotAudioInput.h"
+#include "cozmoAnim/audio/sdkAudioComponent.h"
 #include "cozmoAnim/animation/animationStreamer.h"
 #include "cozmoAnim/animation/streamingAnimationModifier.h"
 #include "cozmoAnim/backpackLights/animBackpackLightComponent.h"
-#include "cozmoAnim/faceDisplay/faceDisplay.h"
 #include "cozmoAnim/faceDisplay/faceInfoScreenManager.h"
 #include "cozmoAnim/micData/micDataSystem.h"
+#include "cozmoAnim/perfMetricAnim.h"
 #include "cozmoAnim/robotDataLoader.h"
 #include "cozmoAnim/showAudioStreamStateManager.h"
 #include "cozmoAnim/textToSpeech/textToSpeechComponent.h"
 
 #include "coretech/common/engine/opencvThreading.h"
-#include "coretech/common/engine/utils/data/dataPlatform.h"
 #include "coretech/common/engine/utils/timer.h"
+#include "coretech/vision/shared/spriteCache/spriteCache.h"
 #include "audioEngine/multiplexer/audioMultiplexer.h"
-#include "anki/cozmo/shared/cozmoConfig.h"
 
 #include "webServerProcess/src/webService.h"
 
 #include "osState/osState.h"
 
-#include "platform/common/diagnosticDefines.h"
-
-#include "util/console/consoleInterface.h"
 #include "util/cpuProfiler/cpuProfiler.h"
 #include "util/logging/logging.h"
-#include "util/time/universalTime.h"
-
-#include <cstdlib>
-#include <ctime>
-#include <iomanip>
-#include <sstream>
 
 #define LOG_CHANNEL    "AnimEngine"
 #define NUM_ANIM_OPENCV_THREADS 0
 
 namespace Anki {
 namespace Vector {
+namespace Anim {
 
 #if ANKI_CPU_PROFILER_ENABLED
-  CONSOLE_VAR_RANGED(float, kAnimEngine_TimeMax_ms,     ANKI_CPU_CONSOLEVARGROUP, 2, 2, 32);
+  CONSOLE_VAR_RANGED(float, kAnimEngine_TimeMax_ms,     ANKI_CPU_CONSOLEVARGROUP, 33, 2, 33);
   CONSOLE_VAR_ENUM(u8,      kAnimEngine_TimeLogging,    ANKI_CPU_CONSOLEVARGROUP, 0, Util::CpuProfiler::CpuProfilerLogging());
 #endif
 
@@ -89,6 +81,7 @@ AnimEngine::AnimEngine(Util::Data::DataPlatform* dataPlatform)
 
 AnimEngine::~AnimEngine()
 {
+  _context->GetWebService()->Stop();
 
 #if ANKI_PROFILE_ANIMCOMMS_SOCKET_BUFFER_STATS
   AnimComms::ReportSocketBufferStats();
@@ -143,7 +136,6 @@ Result AnimEngine::Init()
   }
 
 
-
   AnimProcessMessages::Init(this, _animationStreamer.get(), _streamingAnimationModifier.get(), audioInput, _context.get());
 
   _context->GetWebService()->Start(_context->GetDataPlatform(),
@@ -152,6 +144,14 @@ Result AnimEngine::Init()
 
   _context->GetAlexa()->Init(_context.get());
 
+  const auto pm = _context->GetPerfMetric();
+  pm->Init(_context->GetDataPlatform(), _context->GetWebService());
+  pm->SetAnimationStreamer(_animationStreamer.get());
+  if (pm->GetAutoRecord())
+  {
+    pm->Start();
+  }
+
   // Make sure OpenCV isn't threading
   Result cvResult = SetNumOpencvThreads( NUM_ANIM_OPENCV_THREADS, "AnimEngine.Init" );
   if( RESULT_OK != cvResult )
@@ -159,13 +159,15 @@ Result AnimEngine::Init()
     return cvResult;
   }
 
+  _sdkAudioComponent = std::make_unique<SdkAudioComponent>(_context.get());
+
   LOG_INFO("AnimEngine.Init.Success","Success");
   _isInitialized = true;
 
   return RESULT_OK;
 }
 
-Result AnimEngine::Update(BaseStationTime_t currTime_nanosec)
+Result AnimEngine::Update(const BaseStationTime_t currTime_nanosec)
 {
   ANKI_CPU_TICK("AnimEngine::Update", kAnimEngine_TimeMax_ms, Util::CpuProfiler::CpuProfilerLoggingTime(kAnimEngine_TimeLogging));
   if (!_isInitialized) {
@@ -180,6 +182,7 @@ Result AnimEngine::Update(BaseStationTime_t currTime_nanosec)
   DEV_ASSERT(_ttsComponent, "AnimEngine.Update.InvalidTTSComponent");
   DEV_ASSERT(_animationStreamer, "AnimEngine.Update.InvalidAnimationStreamer");
   DEV_ASSERT(_streamingAnimationModifier, "AnimEngine.Update.InvalidStreamingAnimationModifier");
+  DEV_ASSERT(_sdkAudioComponent, "AnimEngine.Update.InvalidSdkComponent");
 
 #if ANKI_PROFILE_ANIMCOMMS_SOCKET_BUFFER_STATS
   {
@@ -234,6 +237,15 @@ Result AnimEngine::Update(BaseStationTime_t currTime_nanosec)
   return RESULT_OK;
 }
 
+void AnimEngine::RegisterTickPerformance(const float tickDuration_ms,
+                                         const float tickFrequency_ms,
+                                         const float sleepDurationIntended_ms,
+                                         const float sleepDurationActual_ms) const
+{
+  _context->GetPerfMetric()->Update(tickDuration_ms, tickFrequency_ms,
+                                    sleepDurationIntended_ms, sleepDurationActual_ms);
+}
+
 void AnimEngine::HandleMessage(const RobotInterface::TextToSpeechPrepare & msg)
 {
   DEV_ASSERT(_ttsComponent, "AnimEngine.TextToSpeechPrepare.InvalidTTSComponent");
@@ -266,5 +278,32 @@ void AnimEngine::HandleMessage(const RobotInterface::SetLocale & msg)
     _ttsComponent->SetLocale(locale);
   }
 }
+
+void AnimEngine::HandleMessage(const RobotInterface::ExternalAudioChunk & msg)
+{
+  DEV_ASSERT(_sdkAudioComponent, "AnimEngine.ExternalAudioChunk.InvalidSDKAudioComponent");
+  _sdkAudioComponent->HandleMessage(msg);
+}
+
+void AnimEngine::HandleMessage(const RobotInterface::ExternalAudioComplete & msg)
+{
+  DEV_ASSERT(_sdkAudioComponent, "AnimEngine.ExternalAudioComplete.InvalidSDKAudioComponent");
+  _sdkAudioComponent->HandleMessage(msg);
+}
+
+void AnimEngine::HandleMessage(const RobotInterface::ExternalAudioCancel & msg)
+{
+  DEV_ASSERT(_sdkAudioComponent, "AnimEngine.ExternalAudioCancel.InvalidSDKAudioComponent");
+  _sdkAudioComponent->HandleMessage(msg);
+}
+
+void AnimEngine::HandleMessage(const RobotInterface::ExternalAudioPrepare & msg)
+{
+  DEV_ASSERT(_sdkAudioComponent, "AnimEngine.ExternalAudioPrepare.InvalidSDKAudioComponent");
+  _sdkAudioComponent->HandleMessage(msg);
+}
+
+
+} // namespace Anim
 } // namespace Vector
 } // namespace Anki

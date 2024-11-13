@@ -17,7 +17,7 @@
 #include "engine/components/cubes/cubeBatteryComponent.h"
 #include "engine/components/cubes/cubeLights/cubeLightComponent.h"
 #include "engine/components/cubes/ledAnimation.h"
-#include "engine/activeObject.h"
+#include "engine/block.h"
 #include "engine/blockWorld/blockWorld.h"
 #include "engine/cozmoContext.h"
 #include "engine/externalInterface/externalInterface.h"
@@ -53,9 +53,9 @@ namespace {
   
   // How long to remain in discovery mode
 #ifdef SIMULATOR
-  const float kDefaultDiscoveryTime_sec = 3.f;
+  const float kDefaultScanningTime_sec = 3.f;
 #else
-  const float kDefaultDiscoveryTime_sec = 30.f;
+  const float kDefaultScanningTime_sec = 15.f;
 #endif
 
   const float kSendWebVizDataPeriod_sec = 1.0f;
@@ -324,11 +324,12 @@ bool CubeCommsComponent::SendCubeLights(const CubeLights& cubeLights)
                             cubeLightKeyframeChunks);
   
   for (auto& keyframeMsg : cubeLightKeyframeChunks) {
+    const auto startingIndex = keyframeMsg.startingIndex;
     MessageEngineToCube cubeKeyframeChunkMsg(std::move(keyframeMsg));
     if (!SendCubeMessage(cubeKeyframeChunkMsg)) {
       PRINT_NAMED_WARNING("CubeCommsComponent.SendCubeLights.FailedSendingChunk",
                           "Failed to send CubeLightKeyframeChunk message (starting index %d)",
-                          keyframeMsg.startingIndex);
+                          startingIndex);
       return false;
     }
   }
@@ -383,11 +384,11 @@ bool CubeCommsComponent::StartScanningForCubes(const bool autoConnectAfterScan)
   
   LOG_INFO("CubeCommsComponent.StartScanningForCubes.StartScan",
                    "Beginning scan for cubes (duration %.2f seconds). Will %sattempt to connect to a cube after scan.",
-                   kDefaultDiscoveryTime_sec,
+                   kDefaultScanningTime_sec,
                    _connectAfterScan ? "" : "NOT ");
   
   _cubeScanResults.clear();
-  _cubeBleClient->SetScanDuration(kDefaultDiscoveryTime_sec);
+  _cubeBleClient->SetScanDuration(kDefaultScanningTime_sec);
   _cubeBleClient->StartScanning();
   
   return true;
@@ -616,15 +617,13 @@ void CubeCommsComponent::OnCubeConnected(const BleFactoryId& factoryId)
   const auto& activeId = _factoryIdToActiveIdMap[factoryId];
   
   // Add active object to blockworld
-  const ObjectID objID = _robot->GetBlockWorld().AddConnectedActiveObject(activeId, factoryId, kValidCubeType);
+  const ObjectID objID = _robot->GetBlockWorld().AddConnectedBlock(activeId, factoryId, kValidCubeType);
   if (objID.IsSet()) {
     LOG_INFO("CubeCommsComponent.OnCubeConnected.Connected",
                      "Object %d (activeID %d, factoryID %s)",
                      objID.GetValue(), activeId, factoryId.c_str());
-  }
   
-  // TODO: arguably blockworld should do this, because when do we want to remove/add objects and not notify?
-  if (objID.IsSet()) {
+    // TODO: arguably blockworld should do this, because when do we want to remove/add objects and not notify?
     // Send connection message to game
     using namespace ExternalInterface;
     _robot->Broadcast(MessageEngineToGame(ObjectConnectionState(objID.GetValue(),
@@ -660,7 +659,7 @@ void CubeCommsComponent::OnCubeDisconnected(const BleFactoryId& factoryId)
   }
   
   // Remove active object from blockworld if it exists, and remove all instances in all origins
-  const ObjectID objID = _robot->GetBlockWorld().RemoveConnectedActiveObject(activeId);
+  const ObjectID objID = _robot->GetBlockWorld().RemoveConnectedBlock(activeId);
   
   // TODO: arguably blockworld should do this, because when do we want to remove/add objects and not notify?
   if (objID.IsSet()) {
@@ -817,7 +816,7 @@ void CubeCommsComponent::SubscribeToWebViz()
         if(shouldFlashCubeLights && IsConnectedToCube()) {
           // flash lights on connected cube
           const auto& activeId = GetActiveId(GetCurrentCube());
-          const auto* object = _robot->GetBlockWorld().GetConnectedActiveObjectByActiveID(activeId);
+          const auto* object = _robot->GetBlockWorld().GetConnectedBlockByActiveID(activeId);
           if (object != nullptr) {
             _robot->GetCubeLightComponent().PlayLightAnimByTrigger(object->GetID(), CubeAnimationTrigger::Flash);
           }

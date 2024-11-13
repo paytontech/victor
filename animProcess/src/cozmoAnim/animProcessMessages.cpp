@@ -18,7 +18,6 @@
 #include "cozmoAnim/alexa/alexa.h"
 #include "cozmoAnim/animation/animationStreamer.h"
 #include "cozmoAnim/animation/streamingAnimationModifier.h"
-#include "cozmoAnim/animation/trackLayerComponent.h"
 #include "cozmoAnim/audio/engineRobotAudioInput.h"
 #include "cozmoAnim/audio/audioPlaybackSystem.h"
 #include "cozmoAnim/audio/proceduralAudioClient.h"
@@ -32,7 +31,6 @@
 #include "cozmoAnim/showAudioStreamStateManager.h"
 #include "audioEngine/multiplexer/audioMultiplexer.h"
 
-#include "coretech/common/engine/array2d_impl.h"
 #include "coretech/common/engine/utils/timer.h"
 #include "coretech/common/engine/utils/data/dataPlatform.h"
 
@@ -76,12 +74,12 @@ namespace {
   constexpr int MAX_PACKET_BUFFER_SIZE = 2048;
   u8 pktBuffer_[MAX_PACKET_BUFFER_SIZE];
 
-  Anki::Vector::AnimEngine*                   _animEngine = nullptr;
-  Anki::Vector::AnimationStreamer*            _animStreamer = nullptr;
-  Anki::Vector::StreamingAnimationModifier*   _streamingAnimationModifier = nullptr;
+  Anki::Vector::Anim::AnimEngine*             _animEngine = nullptr;
+  Anki::Vector::Anim::AnimationStreamer*            _animStreamer = nullptr;
+  Anki::Vector::Anim::StreamingAnimationModifier*   _streamingAnimationModifier = nullptr;
   Anki::Vector::Audio::EngineRobotAudioInput* _engAudioInput = nullptr;
   Anki::Vector::Audio::ProceduralAudioClient* _proceduralAudioClient = nullptr;
-  const Anki::Vector::AnimContext*            _context = nullptr;
+  const Anki::Vector::Anim::AnimContext*      _context = nullptr;
 
   bool _connectionFlowInited = false;
 
@@ -200,6 +198,13 @@ namespace {
 namespace Anki {
 namespace Vector {
 
+// Note that these are send attempt counts, not a count of successful sends
+uint32_t AnimProcessMessages::_messageCountAnimToRobot = 0;
+uint32_t AnimProcessMessages::_messageCountAnimToEngine = 0;
+uint32_t AnimProcessMessages::_messageCountRobotToAnim = 0;
+uint32_t AnimProcessMessages::_messageCountEngineToAnim = 0;
+
+
 // ========== START OF PROCESSING MESSAGES FROM ENGINE ==========
 // #pragma mark "EngineToRobot Handlers"
 
@@ -236,8 +241,13 @@ void Process_playAnim(const Anki::Vector::RobotInterface::PlayAnim& msg)
            animName.c_str(), msg.tag);
 
   const bool interruptRunning = true;
-  const bool overrideEyes = !msg.renderInEyeHue;
-  _animStreamer->SetStreamingAnimation(animName, msg.tag, msg.numLoops, msg.startAt_ms, interruptRunning, overrideEyes, msg.renderInEyeHue);
+  const bool overrideAllSpritesToEyeHue = msg.renderInEyeHue;
+  _animStreamer->SetStreamingAnimation(animName,
+                                       msg.tag,
+                                       msg.numLoops,
+                                       msg.startAt_ms,
+                                       interruptRunning,
+                                       overrideAllSpritesToEyeHue);
 }
 
 void Process_abortAnimation(const Anki::Vector::RobotInterface::AbortAnimation& msg)
@@ -278,41 +288,29 @@ void Process_displayFaceImageRGBChunk(const Anki::Vector::RobotInterface::Displa
   _animStreamer->Process_displayFaceImageChunk(msg);
 }
 
-void Process_displayCompositeImageChunk(const Anki::Vector::RobotInterface::DisplayCompositeImageChunk& msg)
+void Process_playAnimWithSpriteBoxRemaps(const Anki::Vector::RobotInterface::PlayAnimWithSpriteBoxRemaps& msg)
 {
-  _animStreamer->Process_displayCompositeImageChunk(msg);
+  _animStreamer->Process_playAnimWithSpriteBoxRemaps(msg);
 }
 
-void Process_updateCompositeImage(const Anki::Vector::RobotInterface::UpdateCompositeImage& msg)
+void Process_playAnimWithSpriteBoxKeyFrames(const Anki::Vector::RobotInterface::PlayAnimWithSpriteBoxKeyFrames& msg)
 {
-  _animStreamer->Process_updateCompositeImage(msg);
+  _animStreamer->Process_playAnimWithSpriteBoxKeyFrames(msg);
 }
 
-void Process_playCompositeAnimation(const Anki::Vector::RobotInterface::PlayCompositeAnimation& msg)
+void Process_addSpriteBoxKeyFrames(const Anki::Vector::RobotInterface::AddSpriteBoxKeyFrames& msg)
 {
-  const std::string animName(msg.animName, msg.animName_length);
-
-  _animStreamer->Process_playCompositeAnimation(animName, msg.tag);
+  _animStreamer->Process_addSpriteBoxKeyFrames(msg);
 }
-
 
 void Process_enableKeepFaceAlive(const Anki::Vector::RobotInterface::EnableKeepFaceAlive& msg)
 {
   _animStreamer->EnableKeepFaceAlive(msg.enable, msg.disableTimeout_ms);
 }
 
-void Process_setDefaultKeepFaceAliveParameters(const Anki::Vector::RobotInterface::SetDefaultKeepFaceAliveParameters& msg)
+void Process_setKeepFaceAliveFocus(const Anki::Vector::RobotInterface::SetKeepFaceAliveFocus& msg)
 {
-  _animStreamer->SetDefaultKeepFaceAliveParams();
-}
-
-void Process_setKeepFaceAliveParameter(const Anki::Vector::RobotInterface::SetKeepFaceAliveParameter& msg)
-{
-  if (msg.setToDefault) {
-    _animStreamer->SetParamToDefault(msg.param);
-  } else {
-    _animStreamer->SetParam(msg.param, msg.value);
-  }
+  _animStreamer->SetKeepFaceAliveFocus(msg.enable);
 }
 
 void Process_addOrUpdateEyeShift(const Anki::Vector::RobotInterface::AddOrUpdateEyeShift& msg)
@@ -435,7 +433,7 @@ void Process_setTriggerWordResponse(const Anki::Vector::RobotInterface::SetTrigg
 
   showStreamStateManager->SetTriggerWordResponse(msg);
 }
-  
+
 void Process_setAlexaUXResponses(const Anki::Vector::RobotInterface::SetAlexaUXResponses& msg)
 {
   auto* showStreamStateManager = _context->GetShowAudioStreamStateManager();
@@ -459,20 +457,12 @@ void Process_setAlexaUsage(const Anki::Vector::RobotInterface::SetAlexaUsage& ms
     alexa->SetAlexaUsage( msg.optedIn );
   }
 }
-  
+
 void Process_setButtonWakeWord(const Anki::Vector::RobotInterface::SetButtonWakeWord& msg)
 {
   auto* micDataSystem = _context->GetMicDataSystem();
   if (micDataSystem != nullptr) {
     micDataSystem->SetButtonWakeWordIsAlexa( msg.isAlexa );
-  }
-}
-
-void Process_cancelPendingAlexaAuth(const Anki::Vector::RobotInterface::CancelPendingAlexaAuth& msg)
-{
-  auto* alexa = _context->GetAlexa();
-  if (alexa != nullptr) {
-    alexa->CancelPendingAlexaAuth(EnumToString(msg.reason));
   }
 }
 
@@ -524,6 +514,26 @@ void Process_runDebugConsoleFuncMessage(const Anki::Vector::RobotInterface::RunD
   }
 }
 
+void Process_externalAudioChunk(const RobotInterface::ExternalAudioChunk& msg)
+{
+  _animEngine->HandleMessage(msg);
+}
+
+void Process_externalAudioPrepare(const RobotInterface::ExternalAudioPrepare& msg)
+{
+  _animEngine->HandleMessage(msg);
+}
+
+void Process_externalAudioComplete(const RobotInterface::ExternalAudioComplete& msg)
+{
+  _animEngine->HandleMessage(msg);
+}
+
+void Process_externalAudioCancel(const RobotInterface::ExternalAudioCancel& msg)
+{
+  _animEngine->HandleMessage(msg);
+}
+
 void Process_textToSpeechPrepare(const RobotInterface::TextToSpeechPrepare& msg)
 {
   _animEngine->HandleMessage(msg);
@@ -550,9 +560,31 @@ void Process_setConnectionStatus(const Anki::Vector::SwitchboardInterface::SetCo
   UpdateConnectionFlow(std::move(msg), _animStreamer, _context);
 }
 
+void Process_showUrlFace(const RobotInterface::ShowUrlFace& msg)
+{
+  if(msg.show) {
+    using namespace SwitchboardInterface;
+    Anki::Vector::SwitchboardInterface::SetConnectionStatus connMsg;
+    connMsg.status = ConnectionStatus::SHOW_URL_FACE;
+
+    UpdateConnectionFlow(std::move(connMsg), _animStreamer, _context);
+  }
+}
+  
+void Process_exitCCScreen(const RobotInterface::ExitCCScreen& msg)
+{
+  FaceInfoScreenManager::getInstance()->ExitCCScreen(_animStreamer);
+}
+
+
 void Process_setBLEPin(const Anki::Vector::SwitchboardInterface::SetBLEPin& msg)
 {
   SetBLEPin(msg.pin);
+}
+
+void Process_rangeDataToDisplay(const Anki::Vector::RobotInterface::RangeDataToDisplay& msg)
+{
+  FaceInfoScreenManager::getInstance()->DrawToF(msg.data);
 }
 
 void Process_sendBLEConnectionStatus(const Anki::Vector::SwitchboardInterface::SendBLEConnectionStatus& msg)
@@ -575,6 +607,20 @@ void Process_batteryStatus(const RobotInterface::BatteryStatus& msg)
 {
   _context->GetBackpackLightComponent()->UpdateBatteryStatus(msg);
   _context->GetMicDataSystem()->SetBatteryLowStatus(msg.isLow);
+}
+
+void Process_acousticTestEnabled(const Anki::Vector::RobotInterface::AcousticTestEnabled& msg)
+{
+  bool enabled = msg.enabled;
+  _animStreamer->SetFrozenOnCharger( enabled );
+  auto* alexa = _context->GetAlexa();
+  if( alexa != nullptr ) {
+    alexa->SetFrozenOnCharger( enabled );
+  }
+  auto* showStreamStateManager = _context->GetShowAudioStreamStateManager();
+  if( showStreamStateManager != nullptr ) {
+    showStreamStateManager->SetFrozenOnCharger( enabled );
+  }
 }
 
 void Process_triggerBackpackAnimation(const RobotInterface::TriggerBackpackAnimation& msg)
@@ -694,11 +740,14 @@ static void HandleRobotStateUpdate(const Anki::Vector::RobotState& robotState)
   auto * micDataSystem = _context->GetMicDataSystem();
   if (micDataSystem != nullptr)
   {
-    const auto liftHeight_mm = ConvertLiftAngleToLiftHeightMM(robotState.liftAngle);
     const bool isMicFace = FaceInfoScreenManager::getInstance()->GetCurrScreenName() == ScreenName::MicDirectionClock;
-    if (isMicFace && LIFT_HEIGHT_CARRY-1.f <= liftHeight_mm)
+    if (isMicFace)
     {
-      micDataSystem->SetForceRecordClip(true);
+      const auto liftHeight_mm = ConvertLiftAngleToLiftHeightMM(robotState.liftAngle);
+      if (LIFT_HEIGHT_CARRY-1.f <= liftHeight_mm)
+      {
+        micDataSystem->SetForceRecordClip(true);
+      }
     }
   }
 #endif
@@ -733,13 +782,35 @@ void AnimProcessMessages::ProcessMessageFromRobot(const RobotInterface::RobotToE
     {
       HandleRobotStateUpdate(msg.state);
       const bool onChargerContacts = (msg.state.status & (uint32_t)RobotStatusFlag::IS_ON_CHARGER);
-      _animStreamer->SetBodyWhitelistActive(onChargerContacts);
+      _animStreamer->SetOnCharger(onChargerContacts);
+      auto* showStreamStateManager = _context->GetShowAudioStreamStateManager();
+      if (showStreamStateManager != nullptr)
+      {
+        showStreamStateManager->SetOnCharger( onChargerContacts );
+      }
+      auto* alexa = _context->GetAlexa();
+      if (alexa != nullptr)
+      {
+        alexa->SetOnCharger( onChargerContacts );
+      }
+
+    }
+    break;
+    case RobotInterface::RobotToEngine::Tag_stillAlive:
+    {
+      _pendingRobotDisconnectTime_sec = BaseStationTimer::getInstance()->GetCurrentTimeInSeconds() + kNoRobotStateDisconnectTimeout_sec;
     }
     break;
     case RobotInterface::RobotToEngine::Tag_robotStopped:
     {
       LOG_INFO("AnimProcessMessages.ProcessMessageFromRobot.RobotStopped", "Abort animation");
       _animStreamer->Abort();
+    }
+    break;
+    case RobotInterface::RobotToEngine::Tag_syncRobotAck:
+    {
+      std::string version((const char*)&msg.syncRobotAck.sysconVersion, 16);
+      FaceInfoScreenManager::getInstance()->SetSysconVersion(version);
     }
     break;
     default:
@@ -759,11 +830,11 @@ void AnimProcessMessages::ProcessMessageFromRobot(const RobotInterface::RobotToE
 // ========== START OF CLASS METHODS ==========
 // #pragma mark "Class methods"
 
-Result AnimProcessMessages::Init(AnimEngine* animEngine,
-                                 AnimationStreamer* animStreamer,
-                                 StreamingAnimationModifier* streamingAnimationModifier,
+Result AnimProcessMessages::Init(Anim::AnimEngine* animEngine,
+                                 Anim::AnimationStreamer* animStreamer,
+                                 Anim::StreamingAnimationModifier* streamingAnimationModifier,
                                  Audio::EngineRobotAudioInput* audioInput,
-                                 const AnimContext* context)
+                                 const Anim::AnimContext* context)
 {
   // Preconditions
   DEV_ASSERT(nullptr != animEngine, "AnimProcessMessages.Init.InvalidAnimEngine");
@@ -844,6 +915,11 @@ Result AnimProcessMessages::Update(BaseStationTime_t currTime_nanosec)
 
   ANKI_CPU_PROFILE("AnimProcessMessages::Update");
 
+  _messageCountAnimToRobot = 0;
+  _messageCountAnimToEngine = 0;
+  _messageCountRobotToAnim = 0;
+  _messageCountEngineToAnim = 0;
+
   // Keep trying to init the connection flow until it works
   // which will be when the robot name has been set by switchboard
   if(!_connectionFlowInited)
@@ -882,6 +958,7 @@ Result AnimProcessMessages::Update(BaseStationTime_t currTime_nanosec)
 
     while((dataLen = AnimComms::GetNextPacketFromEngine(pktBuffer_, MAX_PACKET_BUFFER_SIZE)) > 0)
     {
+      ++_messageCountEngineToAnim;
       Anki::Vector::RobotInterface::EngineToRobot msg;
       memcpy(msg.GetBuffer(), pktBuffer_, dataLen);
       if (msg.Size() != dataLen) {
@@ -904,6 +981,7 @@ Result AnimProcessMessages::Update(BaseStationTime_t currTime_nanosec)
 
     while ((dataLen = AnimComms::GetNextPacketFromRobot(pktBuffer_, MAX_PACKET_BUFFER_SIZE)) > 0)
     {
+      ++_messageCountRobotToAnim;
       Anki::Vector::RobotInterface::RobotToEngine msg;
       memcpy(msg.GetBuffer(), pktBuffer_, dataLen);
       if (msg.Size() != dataLen) {
@@ -958,6 +1036,7 @@ bool AnimProcessMessages::SendAnimToRobot(const RobotInterface::EngineToRobot& m
   } else {
     msgProfiler.ReportOnFailure();
   }
+  ++_messageCountAnimToRobot;
   return result;
 }
 
@@ -972,6 +1051,7 @@ bool AnimProcessMessages::SendAnimToEngine(const RobotInterface::RobotToEngine &
   } else {
     msgProfiler.ReportOnFailure();
   }
+  ++_messageCountAnimToEngine;
   return result;
 }
 

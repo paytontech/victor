@@ -39,13 +39,18 @@ class AudioMultiplexer;
 namespace Vector {
 
 class Alexa;
-class BackpackLightComponent;
+namespace Anim {
+  class BackpackLightComponent;
+}
 namespace MicData {
   class MicDataSystem;
 }
-class RobotDataLoader;
+namespace Anim {
+  class RobotDataLoader;
+}
 class ShowAudioStreamStateManager;
 class ThreadIDInternal;
+class PerfMetricAnim;
 
 namespace Audio {
 class AudioPlaybackSystem;
@@ -68,6 +73,7 @@ class WebService;
 // Here begins the actual namespace and interface for AnimContext
 namespace Anki {
 namespace Vector {
+namespace Anim {
 
 class AnimContext : private Util::noncopyable
 {
@@ -81,7 +87,7 @@ public:
   Util::Data::DataPlatform*             GetDataPlatform() const { return _dataPlatform; }
   Util::Locale*                         GetLocale() const { return _locale.get(); }
   Util::RandomGenerator*                GetRandom() const { return _random.get(); }
-  RobotDataLoader*                      GetDataLoader() const { return _dataLoader.get(); }
+  Anim::RobotDataLoader*                GetDataLoader() const { return _dataLoader.get(); }
   Audio::CozmoAudioController*          GetAudioController() const; // Can return nullptr
   AudioMultiplexer*                     GetAudioMultiplexer() const { return _audioMux.get(); }
   MicData::MicDataSystem*               GetMicDataSystem() const { return _micDataSystem.get(); }
@@ -90,14 +96,9 @@ public:
   Audio::AudioPlaybackSystem*           GetAudioPlaybackSystem() const { return _audioPlayer.get(); }
   Alexa*                                GetAlexa() const { return _alexa.get(); }
   BackpackLightComponent*               GetBackpackLightComponent() const { return _backpackLightComponent.get(); }
+  PerfMetricAnim*                       GetPerfMetric() const { return _perfMetric.get(); }
 
   void SetRandomSeed(uint32_t seed);
-
-  // Tell the context that this is the main thread
-  void SetMainThread();
-
-  // Returns true if the current thread is the "main" one. Requires SetMainThread to have been called
-  bool IsMainThread() const;
 
   void SetLocale(const std::string & locale);
 
@@ -105,9 +106,6 @@ private:
   // This is passed in and held onto, but not owned by the context (yet.
   // It really should be, and that refactoring will have to happen soon).
   Util::Data::DataPlatform*                      _dataPlatform = nullptr;
-
-  // for holding the thread id (and avoiding need to include cpuThreadId.h here)
-  std::unique_ptr<ThreadIDInternal> _threadIdHolder;
 
   // Context holds onto these things for everybody.
   //
@@ -117,18 +115,21 @@ private:
   std::unique_ptr<Util::Locale>                  _locale;
   std::unique_ptr<AudioMultiplexer>              _audioMux;
   std::unique_ptr<Util::RandomGenerator>         _random;
-  std::unique_ptr<RobotDataLoader>               _dataLoader;
+  std::unique_ptr<Anim::RobotDataLoader>         _dataLoader;
   std::unique_ptr<Alexa>                         _alexa;
   std::unique_ptr<MicData::MicDataSystem>        _micDataSystem;
   std::unique_ptr<ShowAudioStreamStateManager>   _showStreamStateManager;
   std::unique_ptr<WebService::WebService>        _webService;
   std::unique_ptr<Audio::AudioPlaybackSystem>    _audioPlayer;
   std::unique_ptr<BackpackLightComponent>        _backpackLightComponent;
+  std::unique_ptr<PerfMetricAnim>                _perfMetric;
+
 
   void InitAudio(Util::Data::DataPlatform* dataPlatform);
 };
 
 
+} // namespace Anim
 } // namespace Vector
 } // namespace Anki
 

@@ -16,16 +16,14 @@
 #include "clad/types/behaviorComponent/behaviorIDs.h"
 #include "clad/types/behaviorComponent/beiConditionTypes.h"
 #include "clad/types/behaviorComponent/weatherConditionTypes.h"
-#include "clad/types/compositeImageLayouts.h"
-#include "clad/types/compositeImageMaps.h"
 #include "clad/types/cubeAnimationTrigger.h"
 #include "clad/types/variableSnapshotIds.h"
-#include "clad/types/spriteNames.h"
 
 #include "engine/aiComponent/behaviorComponent/behaviorTypesWrapper.h"
 #include "coretech/vision/shared/compositeImage/compositeImage.h"
 #include "coretech/vision/shared/spritePathMap.h"
 
+#include "util/cladHelpers/cladEnumToStringMap.h"
 #include "util/helpers/noncopyable.h"
 #include <json/json.h>
 #include <atomic>
@@ -41,8 +39,6 @@
 namespace Anki {
 
 namespace Util {
-template<class CladEnum>
-class CladEnumToStringMap;
 
 namespace Data {
 class DataPlatform;
@@ -50,7 +46,6 @@ class DataPlatform;
 }
 
 namespace Vision{
-class CompositeImage;
 class SpriteCache;
 class SpriteSequenceContainer;
 }
@@ -106,15 +101,12 @@ public:
   const std::set<AnimationTrigger>& GetDasBlacklistedAnimationTriggers() const { return _dasBlacklistedAnimationTriggers; }
   const std::set<std::string>& GetDasBlacklistedAnimationNames() const { return _dasBlacklistedAnimationNames; }
 
+  // Returns true if the given animation is allowed to move the body while on the charger
+  bool IsAnimationAllowedToMoveBodyOnCharger(const std::string& animName) const;
+  
   // all clips that are allowed to move the body while on the charger
-  const std::set<std::string>& GetAllWhitelistedChargerAnimationClips() const {
-    return _allWhitelistedChargerAnimationClips;
-  }
-
-  // get _just_ the ones that are supposed to be safe to stay on the charger (a subset of
-  // GetWhitelistedChargerAnimationClips)
-  const std::set<std::string>& GetWhitelistedChargerSafeAnimationClips() const {
-    return _whitelistedChargerSafeAnimationClips;
+  const std::vector<std::string>& GetAllWhitelistedChargerAnimationPrefixes() const {
+    return _whitelistedChargerAnimationPrefixes;
   }
 
   // robot configuration json files
@@ -144,13 +136,6 @@ public:
   const Vision::SpritePathMap* GetSpritePaths()       const { assert(_spritePaths != nullptr); return _spritePaths.get(); }
   Vision::SpriteSequenceContainer* GetSpriteSequenceContainer() { return _spriteSequenceContainer.get();}
   Vision::SpriteCache* GetSpriteCache() const { assert(_spriteCache != nullptr); return _spriteCache.get();  }
-
-  // composite image assets loaded from externals
-  using CompImageMap      = std::unordered_map<Vision::CompositeImageMap, Vision::CompositeImage::LayerImageMap, Anki::Util::EnumHasher>;
-  using CompLayoutMap     = std::unordered_map<Vision::CompositeImageLayout, Vision::CompositeImage, Anki::Util::EnumHasher>;
-  
-  const CompImageMap*  GetCompImageMap()  const { assert(_compImageMap); return _compImageMap.get();}
-  const CompLayoutMap* GetCompLayoutMap() const { assert(_compLayoutMap); return _compLayoutMap.get();}
 
   // weather response map
   using WeatherResponseMap = std::unordered_map<std::string, WeatherConditionType>;
@@ -196,8 +181,6 @@ private:
   void LoadDasBlacklistedAnimations();
   
   void LoadSpritePaths();
-
-  void LoadCompositeImageMaps();
 
   void LoadWeatherResponseMaps();
   void LoadWeatherRemaps();
@@ -268,9 +251,6 @@ private:
   std::unique_ptr<Vision::SpriteCache>   _spriteCache;
   std::unique_ptr<Vision::SpriteSequenceContainer> _spriteSequenceContainer;
 
-  std::unique_ptr<CompImageMap>  _compImageMap;
-  std::unique_ptr<CompLayoutMap> _compLayoutMap;
-
   std::unique_ptr<WeatherResponseMap>      _weatherResponseMap;
   std::unique_ptr<WeatherConditionTTSMap>  _weatherConditionTTSMap;
   Json::Value                              _weatherRemaps;
@@ -286,8 +266,7 @@ private:
   std::set<AnimationTrigger> _dasBlacklistedAnimationTriggers;
   std::set<std::string> _dasBlacklistedAnimationNames;
 
-  std::set<std::string> _allWhitelistedChargerAnimationClips;
-  std::set<std::string> _whitelistedChargerSafeAnimationClips;
+  std::vector<std::string> _whitelistedChargerAnimationPrefixes;
 };
 
 }

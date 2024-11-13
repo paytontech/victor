@@ -27,6 +27,7 @@
 
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace Anki{
@@ -34,7 +35,6 @@ namespace Vector{
 
 // Forward declaration:
 class CozmoContext;
-class VisionComponent;
 class VisionModeSet;
 class IVisionModeSubscriber;
 
@@ -51,7 +51,6 @@ public:
   // IDependencyManagedComponent
   virtual void InitDependent(Vector::Robot* robot, const RobotCompMap& dependentComps) override;
   virtual void GetInitDependencies(RobotCompIDSet& dependencies) const override {
-    dependencies.insert(RobotComponentID::Vision);
     dependencies.insert(RobotComponentID::CozmoContextWrapper);
   }
   virtual void GetUpdateDependencies(RobotCompIDSet& dependencies) const override {}
@@ -91,6 +90,10 @@ public:
 
   const AllVisionModesSchedule& GetSchedule() const { return _schedule; }
   
+  // If andReset=true, also counts the single shot modes as "processed" so they won't be returned anymore after this
+  // VisionComponent (the actual user of the schedule) is expected to be the only caller to use andReset=true
+  void AddSingleShotModesToSet(VisionModeSet& modeSet, bool andReset);
+  
   // in debug builds, send viz messages to webots
   void SendDebugVizMessages(const CozmoContext* context);
   
@@ -124,13 +127,13 @@ private:
       return (minRecord == requestMap.end() ? 0 : minRecord->second);
     }
   };
+  
+  // Internal call to parse the subscription record
+  void UpdateVisionSchedule(const CozmoContext* context);
 
-  // Internal call to parse the subscription record and send the emergent config to the VisionComponent if it changed
-  void UpdateVisionSchedule(VisionComponent& visionComponent, const CozmoContext* context);
-
-  // Makes a pass over the VisionModeSchedule to spread out processing requirements for various modes and sends it to 
-  // the VisionComponent. The generated schedule is returned for evaluation in Unit Tests, but is not normally used.
-  const AllVisionModesSchedule::ModeScheduleList GenerateBalancedSchedule(VisionComponent& visionComponent);
+  // Makes a pass over the VisionModeSchedule to spread out processing requirements for various modes.
+  // The generated schedule is returned for evaluation in Unit Tests, but is not normally used.
+  const AllVisionModesSchedule::ModeScheduleList GenerateBalancedSchedule();
 
   // Returns true if the update period for this mode changed as a result of subscription changes
   bool UpdateModePeriodIfNecessary(VisionModeData& mode) const;
@@ -146,7 +149,8 @@ private:
   std::unordered_map<VisionMode, VisionModeData> _modeDataMap;
   bool _subscriptionRecordIsDirty = false;
   uint8_t _framesSinceSendingDebugViz = 0;
-
+  std::unordered_set<VisionMode> _singleShotModes;
+  
   // Final fully balanced schedule that VisionComponent will use
   AllVisionModesSchedule _schedule;
 }; // class VisionScheduleMediator

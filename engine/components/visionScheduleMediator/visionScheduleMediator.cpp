@@ -14,7 +14,6 @@
 
 #include "visionScheduleMediator.h"
 #include "coretech/common/engine/jsonTools.h"
-#include "engine/components/visionComponent.h"
 #include "engine/cozmoContext.h"
 #include "engine/robot.h"
 #include "engine/robotDataLoader.h"
@@ -83,11 +82,16 @@ void VisionScheduleMediator::Init(const Json::Value& config)
 
     // Limit inputs to Power-Of-Two (zero check is covered above)
     // To simplify schedule building, VisionModeFrequencies must be POT 
+    // AutoExposure and WhiteBalance are special modes and are allowed to run at a non-POT frequency
+    // See comment in 'GenerateBalanceSchedule' as to why they are special
+    if(visionMode != VisionMode::AutoExp && visionMode != VisionMode::WhiteBalance)
+    {
     DEV_ASSERT(((newModeData.low & (newModeData.low  - 1)) == 0) &&
                ((newModeData.med & (newModeData.med  - 1)) == 0) &&
                ((newModeData.high & (newModeData.high  - 1)) == 0) &&
                ((newModeData.standard & (newModeData.standard  - 1)) == 0),
                "VisionScheduleMediator.NonPOTVisionModeFrequency");
+    }
 
     _modeDataMap.insert(std::pair<VisionMode, VisionModeData>(visionMode, newModeData));
 
@@ -104,8 +108,7 @@ void VisionScheduleMediator::UpdateDependent(const RobotCompMap& dependentComps)
 {
   // Update the VisionSchedule, if necessary
   if(_subscriptionRecordIsDirty){
-    UpdateVisionSchedule(dependentComps.GetComponent<VisionComponent>(),
-                         dependentComps.GetComponent<ContextWrapper>().context);
+    UpdateVisionSchedule(dependentComps.GetComponent<ContextWrapper>().context);
   }
 
   // Update the visualization tools
@@ -142,6 +145,11 @@ void VisionScheduleMediator::UpdateModeDataMapWithRequests(IVisionModeSubscriber
       PRINT_NAMED_ERROR("VisionScheduleMediator.UpdateModeDataMapWithRequests.UnknownVisionMode",
         "Vision mode %s was requested by a subscriber, missing settings in visionScheduleMediator_config.json",
         EnumToString(request.mode));
+    }
+    else if(request.frequency == EVisionUpdateFrequency::SingleShot)
+    {
+      // Track these separately since they don't persist
+      _singleShotModes.insert(request.mode);
     }
     else
     {
@@ -276,7 +284,7 @@ void VisionScheduleMediator::ReleaseAllVisionModeSubscriptions(IVisionModeSubscr
   }
 }
 
-void VisionScheduleMediator::UpdateVisionSchedule(VisionComponent& visionComponent, const CozmoContext* context)
+void VisionScheduleMediator::UpdateVisionSchedule(const CozmoContext* context)
 {
   // Construct a new schedule
   bool scheduleDirty = false;
@@ -328,21 +336,33 @@ void VisionScheduleMediator::UpdateVisionSchedule(VisionComponent& visionCompone
   }
 
   if(scheduleDirty){
-    auto modeScheduleList = GenerateBalancedSchedule(visionComponent);
+    auto modeScheduleList = GenerateBalancedSchedule();
     const bool kUseDefaultsForUnspecified = true;
     _schedule = AllVisionModesSchedule(modeScheduleList, kUseDefaultsForUnspecified);
   }
-
+ 
   // On any occasion where we made updates, update the debug viz
   if(ANKI_DEV_CHEATS && (scheduleDirty || activeModesDirty)){
     SendDebugVizMessages(context);
   }
-
+  
   _subscriptionRecordIsDirty = false;
 }
+  
+void VisionScheduleMediator::AddSingleShotModesToSet(VisionModeSet& modeSet, bool andReset)
+{
+  for(auto singleShotMode : _singleShotModes)
+  {
+    modeSet.Insert(singleShotMode);
+  }
+  
+  if(andReset)
+  {
+    _singleShotModes.clear();
+  }
+}
 
-const AllVisionModesSchedule::ModeScheduleList VisionScheduleMediator::GenerateBalancedSchedule(
-  VisionComponent& visionComponent)
+const AllVisionModesSchedule::ModeScheduleList VisionScheduleMediator::GenerateBalancedSchedule()
 {
   std::vector<uint8_t> costStackup(kMaxUpdatePeriod);
   uint8_t maxRequestedUpdatePeriod = 0;
@@ -357,6 +377,19 @@ const AllVisionModesSchedule::ModeScheduleList VisionScheduleMediator::GenerateB
     const VisionMode mode = modeData.first;
     const uint8_t updatePeriod = modeData.second.updatePeriod;
     const uint8_t relativeCost = modeData.second.relativeCost;
+
+    // AutoExposure and WhiteBalance are unique modes in that they need to be scheduled to
+    // run on the same frame otherwise they will fight with each other. They both set camera settings that
+    // can have similar effects on the image produced by the camera. The settings are also not immediately applied.
+    // You can get into a scenario where one mode runs and requests new camera settings, then the other mode runs and requests
+    // other camera settings which result in assumptions made by the first mode's request to be no longer valid.
+    // For this reason we skip trying to balance them in the schedule and let them run at the same time.
+    if(mode == VisionMode::AutoExp || mode == VisionMode::WhiteBalance)
+    {
+      VisionModeSchedule schedule(updatePeriod, 0);
+      modeScheduleList.push_back({mode, schedule});
+      continue;
+    }
 
     // Keep track of our longest requested UpdatePeriod to search the full schedule minimally
     if (updatePeriod > maxRequestedUpdatePeriod){

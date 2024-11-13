@@ -113,8 +113,8 @@ namespace Anki {
         // default here is now to LOCK the body track, but first check the whitelist
 
         auto* dataLoader = GetRobot().GetContext()->GetDataLoader();
-        const auto& whitelist = dataLoader->GetAllWhitelistedChargerAnimationClips();
-        if( whitelist.find(_animName) == whitelist.end() ) {
+        const bool onWhitelist = dataLoader->IsAnimationAllowedToMoveBodyOnCharger(_animName);
+        if( !onWhitelist ) {
 
           // time to lock the body track. Unfortunately, the action has already been Init'd, so it's tracks
           // are already locked. Therefore we have to manually lock the body to make this work
@@ -305,6 +305,35 @@ namespace Anki {
     void TriggerAnimationAction::InitSendStats()
     {
       SendStatsToDasAndWeb(_animName, _animGroupName, _animTrigger);
+    }
+
+    #pragma mark ---- PlayAnimationGroupAction ----
+
+    PlayAnimationGroupAction::PlayAnimationGroupAction(const std::string& animGroupName)
+      : PlayAnimationAction("")
+      , _animGroupName(animGroupName)
+    {
+      SetName("PlayAnimationGroup");
+    }
+
+    ActionResult PlayAnimationGroupAction::Init()
+    {
+      if(_animGroupName.empty())
+      {
+        LOG_ERROR("TriggerAnimationAction.NoAnimationGroupSet", "PlayAnimationGroup created with empty group name");
+        return ActionResult::NO_ANIM_NAME;
+      }
+
+      const bool strictCooldown = false;
+      _animName = GetRobot().GetAnimationComponent().GetAnimationNameFromGroup(_animGroupName, strictCooldown);
+
+      if( _animName.empty() ) {
+        return ActionResult::NO_ANIM_NAME;
+      }
+      else {
+        const ActionResult res = PlayAnimationAction::Init();
+        return res;
+      }
     }
 
     #pragma mark ---- TriggerLiftSafeAnimationAction ----

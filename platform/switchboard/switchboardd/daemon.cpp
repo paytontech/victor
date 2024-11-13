@@ -26,12 +26,14 @@
 #include <linux/reboot.h>
 #include <sys/reboot.h>
 #include <fstream>
+#include <iomanip>
 
 #include "anki-ble/common/log.h"
 #include "anki-ble/common/anki_ble_uuids.h"
 #include "anki-ble/common/ble_advertise_settings.h"
 #include "anki-wifi/wifi.h"
 #include "anki-wifi/exec_command.h"
+#include "auto-test/autoTest.h"
 #include "cutils/properties.h"
 #include "switchboardd/christen.h"
 #include "platform/victorCrashReports/victorCrashReporter.h"
@@ -90,6 +92,13 @@ void Daemon::Start() {
   InitializeCloudComms();   // must come before gateway comms
   InitializeGatewayComms();
   InitializeEngineComms();
+
+  // Initialize Cloud Stack Status
+  _usesEscapePod = IsVectorConnectedToEscapePod();
+  Log::Write("Vector %s escape pod", _usesEscapePod ? "uses" : "does not use");
+
+  // Log the initial wifi state
+  LogWifiState();
   Log::Write("Finished Starting");
 }
 
@@ -115,6 +124,36 @@ void Daemon::OnWifiChanged(bool connected, std::string manufacturerMac) {
   }
 }
 
+void Daemon::LogWifiState() {
+  Anki::Wifi::WiFiState wifiState = Anki::Wifi::GetWiFiState();
+
+  bool connected = (wifiState.connState == Anki::Wifi::WiFiConnState::CONNECTED) ||
+                   (wifiState.connState == Anki::Wifi::WiFiConnState::ONLINE);
+
+  std::string event = "wifi.initial_state";
+
+  DASMSG(wifi_initial_connection_status, event,
+          "WiFi connection state on Switchboard load up.");
+
+  uint8_t apMac[6];
+  bool hasMac = Anki::Wifi::GetApMacAddress(apMac);
+
+  std::string apMacManufacturerBytes = "";
+
+  if(hasMac) {
+    // Strip ap MAC of last three bytes
+    for(int i = 0; i < 3; i++) {
+      std::stringstream ss;
+      ss << std::setfill('0') << std::setw(2) << std::hex << (int)apMac[i];
+      apMacManufacturerBytes += ss.str();
+    }
+  }
+
+  DASMSG_SET(s1, connected?"connected":"disconnected", "Connection state.");
+  DASMSG_SET(s2, apMacManufacturerBytes, "Mac address prefix.");
+  DASMSG_SEND();
+}
+
 void Daemon::InitializeEngineComms() {
   _engineMessagingClient = std::make_shared<EngineMessagingClient>(_loop);
   _engineMessagingClient->Init();
@@ -122,6 +161,29 @@ void Daemon::InitializeEngineComms() {
   _engineTimer.data = this;
   ev_timer_init(&_engineTimer, HandleEngineTimer, kRetryInterval_s, kRetryInterval_s);
   ev_timer_start(_loop, &_engineTimer);
+}
+
+bool Daemon::IsVectorConnectedToEscapePod() {
+  std::string jsonContents = Anki::Util::FileUtils::ReadFile(kServerConfigFilePath);
+  Json::Reader reader;
+  Json::Value config;
+  if (!reader.parse(jsonContents, config)) {
+    Log::Write("Failed to Initialize CloudStackStatus ...");
+    const std::string& errors = reader.getFormattedErrorMessages();
+    if (!errors.empty()) {
+     Log::Write("Json reader errors [%s]", errors.c_str());
+    }
+   
+    return false;
+  }
+
+  if (!config.isMember("chipper")) {
+    Log::Write("Failed to Find chipper url in config file ... ");
+    return false;
+  }
+
+  std::string chipperUrl = config["chipper"].asCString();
+  return chipperUrl.find("escapepod.local") != std::string::npos;
 }
 
 void Daemon::InitializeGatewayComms() {
@@ -198,6 +260,8 @@ bool Daemon::TryConnectToTokenServer() {
 void Daemon::InitializeBleComms() {
   Log::Write("Initialize BLE");
 
+  _engineMessagingClient->HandleHasBleKeysRequest();
+
   if(_bleClient.get() == nullptr) {
     _bleClient = std::make_unique<Anki::Switchboard::BleClient>(_loop);
 
@@ -217,6 +281,13 @@ void Daemon::UpdateAdvertisement(bool pairing) {
     return;
   }
 
+  if(AutoTest::IsAutoTestBot()) {
+    if(!pairing) {
+      Log::Write("automation: UpdatingAdvertisement - overriding pairing state. Forcing into pairing mode.");
+    }
+    pairing = true;
+  }
+
   // update state
   _isPairing = pairing;
 
@@ -228,7 +299,7 @@ void Daemon::UpdateAdvertisement(bool pairing) {
   settings.GetAdvertisement().SetServiceUUID(Anki::kAnkiSingleMessageService_128_BIT_UUID);
   settings.GetAdvertisement().SetIncludeDeviceName(true);
   std::vector<uint8_t> mdata = Anki::kAnkiBluetoothSIGCompanyIdentifier;
-  mdata.push_back(Anki::kVictorProductIdentifier); // distinguish from future Anki products
+  mdata.push_back(_usesEscapePod ? Anki::kVictorProductEscapePodIdentifier : Anki::kVictorProductIdentifier); // distinguish from future Anki products
   mdata.push_back(pairing?'p':0x00); // to indicate whether we are pairing
   settings.GetAdvertisement().SetManufacturerData(mdata);
 
@@ -606,6 +677,7 @@ void Daemon::OnPairingStatus(Anki::Vector::ExternalInterface::MessageEngineToGam
     }
     case Anki::Vector::ExternalInterface::MessageEngineToGameTag::ExitPairing: {
       printf("Exit pairing: %hhu\n", tag);
+      ev_timer_stop(_loop, &_pairingTimer.timer);
       UpdateAdvertisement(false);
       if(_securePairing != nullptr && _isPairing) {
         _securePairing->StopPairing();
@@ -623,6 +695,10 @@ void Daemon::OnPairingStatus(Anki::Vector::ExternalInterface::MessageEngineToGam
       _engineMessagingClient->HandleWifiConnectRequest(std::string((char*)&payload.ssid),
                                                        std::string((char*)&payload.pwd),
                                                        payload.disconnectAfterConnection);
+      break;
+    }
+    case Anki::Vector::ExternalInterface::MessageEngineToGameTag::HasBleKeysRequest: {
+      _engineMessagingClient->HandleHasBleKeysRequest();
       break;
     }
     default: {
@@ -717,10 +793,14 @@ static void SignalCallback(struct ev_loop* loop, struct ev_signal* w, int revent
 {
   logi("Exiting for signal %d", w->signum);
 
+  // Deinitialize Wifi
+  Anki::Wifi::Deinitialize();
+
   if(_daemon != nullptr) {
     _daemon->Stop();
   }
 
+  // Stop timers and end our ev loop.
   ev_timer_stop(sLoop, &sTimer);
   ev_unloop(sLoop, EVUNLOOP_ALL);
   ExitHandler();

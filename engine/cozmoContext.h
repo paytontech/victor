@@ -23,9 +23,7 @@
 // ---------- BEGIN FORWARD DECLARATIONS ----------
 namespace Anki {
 namespace Util {
-  //class GameLogTransferTask;
   class RandomGenerator;
-  //class TransferQueueMgr;
   class Locale;
   namespace AnkiLab {
     class AnkiLab;
@@ -49,8 +47,8 @@ class IGatewayInterface;
 class RobotDataLoader;
 class RobotManager;
 class VizManager;
-class PerfMetric;
-class AppToEngineHandler;
+class PerfMetricEngine;
+class RobotTest;
 
 namespace WebService {
   class WebService;
@@ -93,12 +91,12 @@ public:
   RobotDataLoader*                      GetDataLoader() const { return _dataLoader.get(); }
   RobotManager*                         GetRobotManager() const { return _robotMgr.get(); }
   VizManager*                           GetVizManager() const { return _vizManager.get(); }
-  //Util::TransferQueueMgr*               GetTransferQueue() const { return _transferQueueMgr.get(); }
   CozmoExperiments*                     GetExperiments() const { return _cozmoExperiments.get(); }
-  PerfMetric*                           GetPerfMetric() const { return _perfMetric.get(); }
+  PerfMetricEngine*                     GetPerfMetric() const { return _perfMetric.get(); }
   WebService::WebService*               GetWebService() const { return _webService.get(); }
+  RobotTest*                            GetRobotTest() const { return _robotTest.get(); }
 
-  void  SetSdkStatus(SdkStatusType statusType, std::string&& statusText) const;
+  void SetSdkStatus(SdkStatusType statusType, std::string&& statusText) const;
 
   void SetRandomSeed(uint32_t seed);
 
@@ -117,9 +115,9 @@ public:
 private:
   // This is passed in and held onto, but not owned by the context (yet.
   // It really should be, and that refactoring will have to happen soon).
-  IExternalInterface*                                     _externalInterface = nullptr;
-  IGatewayInterface*                                      _gatewayInterface = nullptr;
-  Util::Data::DataPlatform*                               _dataPlatform = nullptr;
+  IExternalInterface*                                   _externalInterface = nullptr;
+  IGatewayInterface*                                    _gatewayInterface = nullptr;
+  Util::Data::DataPlatform*                             _dataPlatform = nullptr;
 
   // for holding the thread id (and avoiding need to include cpuThreadId.h here)
   std::unique_ptr<ThreadIDInternal> _threadIdHolder;
@@ -131,13 +129,10 @@ private:
   std::unique_ptr<RobotDataLoader>                      _dataLoader;
   std::unique_ptr<RobotManager>                         _robotMgr;
   std::unique_ptr<VizManager>                           _vizManager;
-  //std::unique_ptr<Util::TransferQueueMgr>               _transferQueueMgr;
-  //std::unique_ptr<Util::GameLogTransferTask>            _gameLogTransferTask;
   std::unique_ptr<CozmoExperiments>                     _cozmoExperiments;
-  std::unique_ptr<PerfMetric>                           _perfMetric;
+  std::unique_ptr<PerfMetricEngine>                     _perfMetric;
   std::unique_ptr<WebService::WebService>               _webService;
-  std::unique_ptr<AppToEngineHandler>                   _appToEngineHandler;
-
+  std::unique_ptr<RobotTest>                            _robotTest;
 };
 
 

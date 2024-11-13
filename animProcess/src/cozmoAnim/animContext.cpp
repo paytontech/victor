@@ -7,6 +7,7 @@
 #include "cozmoAnim/audio/cozmoAudioController.h"
 #include "cozmoAnim/backpackLights/animBackpackLightComponent.h"
 #include "cozmoAnim/micData/micDataSystem.h"
+#include "cozmoAnim/perfMetricAnim.h"
 #include "cozmoAnim/robotDataLoader.h"
 #include "cozmoAnim/showAudioStreamStateManager.h"
 
@@ -23,6 +24,7 @@
 
 namespace Anki {
 namespace Vector {
+namespace Anim {
 
 class ThreadIDInternal : private Util::noncopyable
 {
@@ -33,7 +35,6 @@ public:
 
 AnimContext::AnimContext(Util::Data::DataPlatform* dataPlatform)
   : _dataPlatform(dataPlatform)
-  , _threadIdHolder(new ThreadIDInternal)
   , _locale(new Anki::Util::Locale(Anki::Util::Locale::GetNativeLocale()))
   , _random(new Anki::Util::RandomGenerator())
   , _dataLoader(new RobotDataLoader(this))
@@ -43,6 +44,7 @@ AnimContext::AnimContext(Util::Data::DataPlatform* dataPlatform)
   , _webService(new WebService::WebService())
   , _audioPlayer(new Audio::AudioPlaybackSystem(this))
   , _backpackLightComponent(new BackpackLightComponent(this))
+  , _perfMetric(new PerfMetricAnim(this))
 {
   InitAudio(_dataPlatform);
 }
@@ -73,18 +75,6 @@ void AnimContext::SetRandomSeed(uint32_t seed)
 }
 
 
-void AnimContext::SetMainThread()
-{
-  _threadIdHolder->_id = Util::GetCurrentThreadId();
-}
-
-
-bool AnimContext::IsMainThread() const
-{
-  return Util::AreCpuThreadIdsEqual( _threadIdHolder->_id, Util::GetCurrentThreadId() );
-}
-
-
 void AnimContext::InitAudio(Util::Data::DataPlatform* dataPlatform)
 {
   // Only set up the audio server if we have a real dataPlatform
@@ -112,5 +102,6 @@ void AnimContext::SetLocale(const std::string & locale)
     _alexa->UpdateLocale(*_locale);
   }
 }
+} // namespace Anim
 } // namespace Vector
 } // namespace Anki

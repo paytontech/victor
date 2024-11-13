@@ -27,7 +27,7 @@ long long RtsHandlerV4::sTimeStarted;
 
 RtsHandlerV4::RtsHandlerV4(INetworkStream* stream, 
     struct ev_loop* evloop,
-    std::shared_ptr<EngineMessagingClient> engineClient,
+    std::shared_ptr<ISwitchboardCommandClient> engineClient,
     std::shared_ptr<TokenClient> tokenClient,
     std::shared_ptr<GatewayMessagingServer> gatewayServer,
     std::shared_ptr<ConnectionIdManager> connectionIdManager,
@@ -154,7 +154,7 @@ void RtsHandlerV4::SubscribeToCladMessages() {
 }
 
 bool RtsHandlerV4::IsAuthenticated() {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return false;
   }
 
@@ -206,6 +206,11 @@ void RtsHandlerV4::SaveSessionKeys() {
   // Only save on fully authed connection
   // this should be when cloud has been authed
   SaveKeys();
+
+  // Tell engine
+  if(_engineClient != nullptr) {
+    _engineClient->HandleHasBleKeysRequest();
+  }
 }
 
 //
@@ -217,7 +222,7 @@ void RtsHandlerV4::SaveSessionKeys() {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void RtsHandlerV4::HandleRtsConnResponse(const Anki::Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!AssertState(RtsCommsType::Unencrypted)) {
+  if(!HasState(RtsCommsType::Unencrypted)) {
     return;
   }
 
@@ -262,7 +267,7 @@ void RtsHandlerV4::HandleRtsConnResponse(const Anki::Vector::ExternalComms::RtsC
 }
 
 void RtsHandlerV4::HandleRtsChallengeMessage(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -278,7 +283,7 @@ void RtsHandlerV4::HandleRtsChallengeMessage(const Vector::ExternalComms::RtsCon
 }
 
 void RtsHandlerV4::HandleRtsWifiConnectRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -292,7 +297,9 @@ void RtsHandlerV4::HandleRtsWifiConnectRequest(const Vector::ExternalComms::RtsC
     UpdateFace(Anki::Vector::SwitchboardInterface::ConnectionStatus::SETTING_WIFI);
 
     // Disable autoconnect before connecting manually
-    _wifiWatcher->Disable();
+    if(_wifiWatcher != nullptr) {
+      _wifiWatcher->Disable();
+    }
 
     Wifi::ConnectWifiResult connected = Wifi::ConnectWiFiBySsid(wifiConnectMessage.wifiSsidHex,
       wifiConnectMessage.password,
@@ -314,6 +321,16 @@ void RtsHandlerV4::HandleRtsWifiConnectRequest(const Vector::ExternalComms::RtsC
 
     if(connected == Wifi::ConnectWifiResult::CONNECT_SUCCESS) {
       Log::Write("Connected to wifi.");
+
+      // We use chrony to keep the time in vector upto date. Normally it assumes that the 
+      // wifi is connected and pings the NTP servers to update the time. Here we know for 
+      // sure the wifi is connected and try to restart the service.      
+      int res = system("sudo systemctl restart chronyd");
+      if (res != 0) {
+        Log::Write("Failed to restart chronyd : result %d", res);
+      } else {
+        Log::Write("Restarted chronyd successfully");
+      }
     } else if(connected == Wifi::ConnectWifiResult::CONNECT_INVALIDKEY) {
       Log::Write("Failure to connect: invalid wifi password.");
     } else {
@@ -325,7 +342,7 @@ void RtsHandlerV4::HandleRtsWifiConnectRequest(const Vector::ExternalComms::RtsC
 }
 
 void RtsHandlerV4::HandleRtsWifiIpRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -344,7 +361,7 @@ void RtsHandlerV4::HandleRtsWifiIpRequest(const Vector::ExternalComms::RtsConnec
 }
 
 void RtsHandlerV4::HandleRtsStatusRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -356,7 +373,7 @@ void RtsHandlerV4::HandleRtsStatusRequest(const Vector::ExternalComms::RtsConnec
 }
 
 void RtsHandlerV4::HandleRtsWifiScanRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -392,7 +409,7 @@ void RtsHandlerV4::HandleRtsWifiForgetRequest(const Vector::ExternalComms::RtsCo
 }
 
 void RtsHandlerV4::HandleRtsOtaUpdateRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!IsAuthenticated()) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -406,7 +423,7 @@ void RtsHandlerV4::HandleRtsOtaUpdateRequest(const Vector::ExternalComms::RtsCon
 }
 
 void RtsHandlerV4::HandleRtsOtaCancelRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!IsAuthenticated()) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -513,7 +530,12 @@ void RtsHandlerV4::ProcessCloudAuthResponse(bool isPrimary, Anki::Vector::TokenE
 
 void RtsHandlerV4::HandleRtsCloudSessionRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
   // Handle Cloud Session Request
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
+    return;
+  }
+
+  if(_tokenClient == nullptr) {
+    SendRtsMessage<RtsResponse>(RtsResponseCode::UnsupportedRequest, "Unsupported request type.");
     return;
   }
 
@@ -590,7 +612,7 @@ void RtsHandlerV4::HandleRtsCloudSessionRequest(const Vector::ExternalComms::Rts
 }
 
 void RtsHandlerV4::HandleRtsAppConnectionIdRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -607,8 +629,8 @@ void RtsHandlerV4::HandleRtsAppConnectionIdRequest(const Vector::ExternalComms::
 }
 
 void RtsHandlerV4::HandleRtsForceDisconnect(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!(AssertState(RtsCommsType::Encrypted) || 
-    AssertState(RtsCommsType::Unencrypted))) {
+  if(!(HasState(RtsCommsType::Encrypted) || 
+    HasState(RtsCommsType::Unencrypted))) {
     return;
   }
 
@@ -616,7 +638,7 @@ void RtsHandlerV4::HandleRtsForceDisconnect(const Vector::ExternalComms::RtsConn
 }
 
 void RtsHandlerV4::HandleRtsLogRequest(const Vector::ExternalComms::RtsConnection_4& msg) {
-  if(!IsAuthenticated()) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -752,7 +774,7 @@ void RtsHandlerV4::HandleChallengeResponse(uint8_t* pingChallengeAnswer, uint32_
 //
 
 void RtsHandlerV4::SendPublicKey() {
-  if(!AssertState(RtsCommsType::Unencrypted)) {
+  if(!HasState(RtsCommsType::Unencrypted)) {
     return;
   }
 
@@ -771,7 +793,7 @@ void RtsHandlerV4::SendPublicKey() {
 }
 
 void RtsHandlerV4::SendNonce() {
-  if(!AssertState(RtsCommsType::Unencrypted)) {
+  if(!HasState(RtsCommsType::Unencrypted)) {
     return;
   }
 
@@ -798,7 +820,7 @@ void RtsHandlerV4::SendNonce() {
 }
 
 void RtsHandlerV4::SendChallenge() {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -814,7 +836,7 @@ void RtsHandlerV4::SendChallenge() {
 }
 
 void RtsHandlerV4::SendChallengeSuccess() {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -825,7 +847,7 @@ void RtsHandlerV4::SendChallengeSuccess() {
 }
 
 void RtsHandlerV4::SendStatusResponse() {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -835,10 +857,7 @@ void RtsHandlerV4::SendStatusResponse() {
   bool isApMode = Wifi::IsAccessPointMode();
 
   // Send challenge and update state
-  char buildNo[PROPERTY_VALUE_MAX] = {0};
-  (void)property_get("ro.build.id", buildNo, "");
-
-  std::string buildNoString(buildNo);
+  std::string buildNoString = GetBuildIdString();
   std::string esnString("");
 
   // Get output of emr-cat e
@@ -866,7 +885,7 @@ void RtsHandlerV4::SendWifiAccessPointResponse(bool success, std::string ssid, s
 }
 
 void RtsHandlerV4::SendWifiScanResult() {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -898,12 +917,14 @@ void RtsHandlerV4::SendWifiScanResult() {
 }
 
 void RtsHandlerV4::SendWifiConnectResult(Wifi::ConnectWifiResult result) {
-  if(!AssertState(RtsCommsType::Encrypted)) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
   // Re-enable autoconnect
-  _wifiWatcher->Enable();
+  if(_wifiWatcher != nullptr) {
+    _wifiWatcher->Enable();
+  }
 
   // Send challenge and update state
   Wifi::WiFiState wifiState = Wifi::GetWiFiState();
@@ -911,7 +932,7 @@ void RtsHandlerV4::SendWifiConnectResult(Wifi::ConnectWifiResult result) {
 }
 
 void RtsHandlerV4::SendFile(uint32_t fileId, std::vector<uint8_t> fileBytes) {
-  if(!IsAuthenticated()) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
 
@@ -943,7 +964,7 @@ void RtsHandlerV4::SendCancelPairing() {
 }
 
 void RtsHandlerV4::SendOtaProgress(int status, uint64_t progress, uint64_t expectedTotal) {
-  if(!IsAuthenticated()) {
+  if(!HasState(RtsCommsType::Encrypted)) {
     return;
   }
   // Send Ota Progress

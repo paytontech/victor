@@ -16,7 +16,8 @@
 
 #include "coretech/common/engine/math/fastPolygon2d.h"
 #include "coretech/common/engine/math/pose.h"
-#include "coretech/common/engine/math/polygon.h"
+#include "coretech/common/engine/math/polygon_fwd.h"
+#include "coretech/common/engine/math/quad.h"
 #include "coretech/common/engine/colorRGBA.h"
 #include "coretech/common/engine/robotTimeStamp.h"
 #include "util/helpers/ankiDefines.h"
@@ -72,8 +73,7 @@ namespace Anki {
       // function below which is just a wrapper around DrawObject. This one
       // actually sets the pose of a CozmoBot model in the world providing
       // more detailed visualization capabilities.
-      void DrawRobot(const u32 robotID,
-                     const Pose3d &pose,
+      void DrawRobot(const Pose3d &pose,
                      const f32 headAngle,
                      const f32 liftAngle);
       
@@ -140,7 +140,8 @@ namespace Anki {
         const Point3f &size,
         const Pose3d &pose,
         const ColorRGBA& color = ::Anki::NamedColors::DEFAULT,
-        const f32* params = nullptr);
+        const f32* params = nullptr,
+        const std::string& text = "");
       
       // Erases the object corresponding to the objectID
       void EraseVizObject(const Handle_t objectID);
@@ -310,6 +311,8 @@ namespace Anki {
     
       // ==== Text functions =====
       void SetText(const TextLabelType& labelType, const ColorRGBA& color, const char* format, ...);
+
+      Handle_t DrawTextAtPose(const u32 textObjectID, const std::string& text, const ColorRGBA& color, const Pose3d& pose);
         
       // ==== Misc. Debug functions =====
       void SetDockingError(const f32 x_dist, const f32 y_dist, const f32 z_dist, const f32 angle);
@@ -318,7 +321,7 @@ namespace Anki {
 
       void EnableImageSend(bool tf) { _sendImages = tf; }
 
-      void SendImageChunk(const RobotID_t robotID, const ImageChunk& robotImageChunk);
+      void SendImageChunk(const ImageChunk& robotImageChunk);
       
       void SendTrackerQuad(const u16 topLeft_x, const u16 topLeft_y,
                            const u16 topRight_x, const u16 topRight_y,
