@@ -17,6 +17,7 @@ enum uint_8 BehaviorClass {
   HighLevelAI,
   LookAroundInPlace,
   ResetState,
+  SimpleVoiceResponse,
   StayOnChargerUntilCharged,
   Wait,
 
@@ -86,6 +87,7 @@ enum uint_8 BehaviorClass {
   ListenForBeats,
 
   // devBehaviors
+  CubeDrive,
   DevBatteryLogging,
   DevCubeSpinnerConsole,
   DevDesignCubeLights,
@@ -94,6 +96,7 @@ enum uint_8 BehaviorClass {
   DevImageCapture,
   DevSquawkBoxTest,
   DevTestBlackjackViz,
+  DevTestSpriteBoxRemaps,
   DevTouchDataCollection,
   DevTurnInPlaceTest,
   DevViewCubeBackpackLights,
@@ -106,19 +109,6 @@ enum uint_8 BehaviorClass {
   PowerSaveTest,
   ReactToBody,
   ReactToGazeDirection,
-
-  // devBehaviors/playpen
-  PlaypenCameraCalibration,
-  PlaypenDistanceSensor,
-  PlaypenDriftCheck,
-  PlaypenDriveForwards,
-  PlaypenEndChecks,
-  PlaypenInitChecks,
-  PlaypenMotorCalibration,
-  PlaypenPickupCube,
-  PlaypenSoundCheck,
-  PlaypenTest,
-  PlaypenWaitToStart,
 
   // devBehaviors/selfTest
   SelfTest,
@@ -169,6 +159,7 @@ enum uint_8 BehaviorClass {
 
   // heldInPalm
   InitialHeldInPalmReaction,
+  ReactToPalmEdge,
 
   // knowledgeGraph
   KnowledgeGraphQuestion,

@@ -12,6 +12,7 @@
 #include "engine/aiComponent/behaviorComponent/behaviors/behaviorHighLevelAI.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/behaviorLookAroundInPlace.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/behaviorResetState.h"
+#include "engine/aiComponent/behaviorComponent/behaviors/behaviorSimpleVoiceResponse.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/behaviorStayOnChargerUntilCharged.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/behaviorWait.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/alexa/behaviorAlexa.h"
@@ -57,6 +58,7 @@
 #include "engine/aiComponent/behaviorComponent/behaviors/danceToTheBeat/behaviorDanceToTheBeat.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/danceToTheBeat/behaviorDanceToTheBeatCoordinator.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/danceToTheBeat/behaviorListenForBeats.h"
+#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorCubeDrive.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevBatteryLogging.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevCubeSpinnerConsole.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevDesignCubeLights.h"
@@ -65,6 +67,7 @@
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevImageCapture.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevSquawkBoxTest.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevTestBlackjackViz.h"
+#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevTestSpriteBoxRemaps.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevTouchDataCollection.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevTurnInPlaceTest.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorDevViewCubeBackpackLights.h"
@@ -77,17 +80,6 @@
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorPowerSaveTest.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorReactToBody.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/behaviorReactToGazeDirection.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenCameraCalibration.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenDistanceSensor.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenDriftCheck.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenDriveForwards.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenEndChecks.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenInitChecks.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenMotorCalibration.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenPickupCube.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenSoundCheck.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenTest.h"
-#include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/playpen/behaviorPlaypenWaitToStart.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/selfTest/behaviorSelfTest.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/selfTest/behaviorSelfTestButton.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/devBehaviors/selfTest/behaviorSelfTestDockWithCharger.h"
@@ -120,6 +112,7 @@
 #include "engine/aiComponent/behaviorComponent/behaviors/gateBehaviors/behaviorConnectToCube.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/habitat/behaviorConfirmHabitat.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/heldInPalm/behaviorInitialHeldInPalmReaction.h"
+#include "engine/aiComponent/behaviorComponent/behaviors/heldInPalm/behaviorReactToPalmEdge.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/knowledgeGraph/behaviorKnowledgeGraphQuestion.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/meetCozmo/behaviorEnrollFace.h"
 #include "engine/aiComponent/behaviorComponent/behaviors/meetCozmo/behaviorRespondToRenameFace.h"
@@ -220,6 +213,12 @@ ICozmoBehaviorPtr BehaviorFactory::CreateBehavior(const Json::Value& config)
     case BehaviorClass::ResetState:
     {
       newBehavior = ICozmoBehaviorPtr(new BehaviorResetState(config));
+      break;
+    }
+    
+    case BehaviorClass::SimpleVoiceResponse:
+    {
+      newBehavior = ICozmoBehaviorPtr(new BehaviorSimpleVoiceResponse(config));
       break;
     }
     
@@ -493,6 +492,12 @@ ICozmoBehaviorPtr BehaviorFactory::CreateBehavior(const Json::Value& config)
       break;
     }
     
+    case BehaviorClass::CubeDrive:
+    {
+      newBehavior = ICozmoBehaviorPtr(new BehaviorCubeDrive(config));
+      break;
+    }
+    
     case BehaviorClass::DevBatteryLogging:
     {
       newBehavior = ICozmoBehaviorPtr(new BehaviorDevBatteryLogging(config));
@@ -538,6 +543,12 @@ ICozmoBehaviorPtr BehaviorFactory::CreateBehavior(const Json::Value& config)
     case BehaviorClass::DevTestBlackjackViz:
     {
       newBehavior = ICozmoBehaviorPtr(new BehaviorDevTestBlackjackViz(config));
+      break;
+    }
+    
+    case BehaviorClass::DevTestSpriteBoxRemaps:
+    {
+      newBehavior = ICozmoBehaviorPtr(new BehaviorDevTestSpriteBoxRemaps(config));
       break;
     }
     
@@ -610,72 +621,6 @@ ICozmoBehaviorPtr BehaviorFactory::CreateBehavior(const Json::Value& config)
     case BehaviorClass::ReactToGazeDirection:
     {
       newBehavior = ICozmoBehaviorPtr(new BehaviorReactToGazeDirection(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenCameraCalibration:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenCameraCalibration(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenDistanceSensor:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenDistanceSensor(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenDriftCheck:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenDriftCheck(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenDriveForwards:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenDriveForwards(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenEndChecks:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenEndChecks(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenInitChecks:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenInitChecks(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenMotorCalibration:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenMotorCalibration(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenPickupCube:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenPickupCube(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenSoundCheck:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenSoundCheck(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenTest:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenTest(config));
-      break;
-    }
-    
-    case BehaviorClass::PlaypenWaitToStart:
-    {
-      newBehavior = ICozmoBehaviorPtr(new BehaviorPlaypenWaitToStart(config));
       break;
     }
     
@@ -868,6 +813,12 @@ ICozmoBehaviorPtr BehaviorFactory::CreateBehavior(const Json::Value& config)
     case BehaviorClass::InitialHeldInPalmReaction:
     {
       newBehavior = ICozmoBehaviorPtr(new BehaviorInitialHeldInPalmReaction(config));
+      break;
+    }
+    
+    case BehaviorClass::ReactToPalmEdge:
+    {
+      newBehavior = ICozmoBehaviorPtr(new BehaviorReactToPalmEdge(config));
       break;
     }
     

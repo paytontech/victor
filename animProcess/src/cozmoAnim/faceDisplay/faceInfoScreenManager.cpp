@@ -28,11 +28,10 @@
 
 #include "micDataTypes.h"
 
-#include "coretech/common/shared/array2d_impl.h"
+#include "coretech/common/shared/array2d.h"
 #include "coretech/common/engine/utils/data/dataPlatform.h"
 #include "coretech/common/engine/utils/timer.h"
 #include "coretech/vision/engine/image.h"
-#include "coretech/vision/engine/image_impl.h"
 #include "util/console/consoleInterface.h"
 #include "util/console/consoleSystem.h"
 #include "util/fileUtils/fileUtils.h"
@@ -241,8 +240,10 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
   }
   else
   {
-    ADD_SCREEN(Camera, Main);
+    ADD_SCREEN(Camera, Kercre123);
   }
+
+  ADD_SCREEN_WITH_TEXT(Kercre123, Main, {"BRANCH: snowboy?"});
 
 
   // ========== Screen Customization ========= 
@@ -299,7 +300,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
 
   ADD_MENU_ITEM(Main, "EXIT", None);
 #if ENABLE_SELF_TEST
-  ADD_MENU_ITEM(Main, "RUN SELF TEST", SelfTest);
+  ADD_MENU_ITEM(Main, "SELF TEST", SelfTest);
 #endif
   ADD_MENU_ITEM(Main, "CLEAR USER DATA", ClearUserData);
 
@@ -953,7 +954,7 @@ void FaceInfoScreenManager::CheckForButtonEvent(const bool buttonPressed,
       singlePressPending = true;
     } else if (doublePressPending) {
       doublePressPending = false;
-      doublePressDetected = true;
+      doublePressDetected = false;
     }
     shutdownSent = false;
   } else if (singlePressPending && !mightBeDoublePress) {
@@ -1015,7 +1016,7 @@ void FaceInfoScreenManager::ProcessMenuNavigation(const RobotState& state)
 
   const ScreenName currScreenName = GetCurrScreenName();
 
-  if (singlePressDetected) {
+  if (singlePressDetected && _engineLoaded) {
     if (IsAlexaScreen(currScreenName)) {
       // Single press should exit any uncompleted alexa authorization
       Alexa* alexa = _context->GetAlexa();
@@ -1272,6 +1273,9 @@ void FaceInfoScreenManager::DrawMain()
     esn =  serialNum;
   }
 
+  std::transform(esn.begin(), esn.end(), esn.begin(),
+    [](unsigned char c){ return std::tolower(c); });
+
   const std::string serialNo = "ESN: "  + esn;
 
   const std::string hwVer    = "HW: "   + std::to_string(Factory::GetEMR()->fields.HW_VER);
@@ -1354,7 +1358,6 @@ void FaceInfoScreenManager::DrawNetwork()
                             // TODO: re-enable after security team has confirmed showing email is allowed
                             //  { {"EMAIL: "}, {"dummy...@a...com"} },
                              { {"IP: "}, {ip, (osstate->IsValidIPAddress(ip) ? NamedColors::GREEN : NamedColors::RED)} },
-                             { },
                              { {currTime} },
                              { {"NETWORK: "}, _testingNetwork ? ColoredText("") : getStatusString(_networkStatus) }
                            };
@@ -1433,8 +1436,16 @@ void FaceInfoScreenManager::DrawSensorInfo(const RobotState& state)
   {
     DrawTextOnScreen({cliffs, touch, batt, charger, tempC});
   }
-  else
+  else if (IsXray())
   {
+    sprintf(temp,
+            "DIST: %3umm (%2.1f %2.1f %3.f)",
+            state.proxData.distance_mm,
+            state.proxData.signalIntensity,
+            state.proxData.ambientIntensity,
+            state.proxData.spadCount);
+    DrawTextOnScreen({syscon, cliffs, temp, touch, batt, charger, tempC});
+  } else {
     DrawTextOnScreen({syscon, cliffs, prox1, prox2, touch, batt, charger, tempC});
   }
 }
@@ -1553,10 +1564,10 @@ void FaceInfoScreenManager::DrawAlexaFace()
 
   static const int        kScreenTop            = 0;
   static const int        kIconToTextSpacing    = 0;
-  static const float      kDefaultTextScale     = 0.4f;
   static const ColorRGBA& kTextColor            = NamedColors::WHITE;
   static const int        kTextSpacing          = 14;
   static const int        kTextLineThickness    = 1;
+  float      kDefaultTextScale     = IsXray() ? 0.3f : 0.4f;
 
   // draw the alexa icon ...
 
@@ -1595,16 +1606,21 @@ void FaceInfoScreenManager::DrawAlexaFace()
     {
       textVec.push_back( { "You're ready to use Alexa." } );
       textVec.push_back( { "Check out the Alexa App" } );
-      textVec.push_back( { "for things to try." } );
-
+      if (!IsXray()) {
+        textVec.push_back( { "for things to try." } );
+      }
       break;
     }
 
     case ScreenName::AlexaPairingExpired:
     {
       textVec.push_back( { "The code has expired." } );
-      textVec.push_back( { "Retry to generate" } );
-      textVec.push_back( { "a new code." } );
+      if (IsXray()) {
+        textVec.push_back( { "Try again" } );
+      } else {
+        textVec.push_back( { "Retry to generate" } );
+        textVec.push_back( { "a new code." } );
+      }
 
       break;
     }
@@ -1659,10 +1675,8 @@ void FaceInfoScreenManager::DrawMuteAnimation()
   // so play the on/off or off/on anim to reflect that
   const std::string animName = muted ? "anim_micstate_micoff_01" : "anim_micstate_micon_01";
   const bool shouldInterrupt = true;
-  const bool shouldOverrideEyeHue = true;
-  const bool shouldRenderInEyeHue = false;
-  _animationStreamer->SetStreamingAnimation(animName, 0, 1, shouldInterrupt,
-                                            shouldOverrideEyeHue, shouldRenderInEyeHue);
+  const bool overrideAllSpritesToEyeColor = true;
+  _animationStreamer->SetStreamingAnimation(animName, 0, 1, 0, shouldInterrupt, overrideAllSpritesToEyeColor);
   
 }
   
@@ -1674,10 +1688,7 @@ void FaceInfoScreenManager::DrawAlexaNotification()
 
   const std::string animName = "anim_avs_notification_loop_01";
   const bool shouldInterrupt = true;
-  const bool shouldOverrideEyeHue = true;
-  const bool shouldRenderInEyeHue = false;
-  _animationStreamer->SetStreamingAnimation(animName, 0, 1, 0, shouldInterrupt,
-                                            shouldOverrideEyeHue, shouldRenderInEyeHue);
+  _animationStreamer->SetStreamingAnimation(animName, 0, 1, 0, shouldInterrupt);
 }
 
 // Draws each element of the textVec on a separate line (spacing determined by textSpacing_pix)
@@ -1695,6 +1706,8 @@ void FaceInfoScreenManager::DrawTextOnScreen(const std::vector<std::string>& tex
   f32 textLocY = loc.y();
   // TODO: Expose line and location(?) as arguments
   const u8  textLineThickness = 8;
+
+  textScale = IsXray() ? textScale - 0.05f : textScale;
 
   for(const auto& text : textVec)
   {
@@ -2093,6 +2106,18 @@ void FaceInfoScreenManager::SelfTestEnd(Anim::AnimationStreamer* animStreamer)
   _context->GetBackpackLightComponent()->SetSelfTestRunning(false);
   
   SetScreen(ScreenName::Main);
+}
+  
+void FaceInfoScreenManager::ExitCCScreen(Anim::AnimationStreamer* animStreamer)
+{
+  const ScreenName curScreen = FaceInfoScreenManager::getInstance()->GetCurrScreenName();
+  if(curScreen == ScreenName::SelfTestRunning)
+  {
+    animStreamer->EnableKeepFaceAlive(true, 0);
+    _context->GetBackpackLightComponent()->SetSelfTestRunning(false);
+  }
+  
+  SetScreen(ScreenName::None);
 }
 
 } // namespace Vector

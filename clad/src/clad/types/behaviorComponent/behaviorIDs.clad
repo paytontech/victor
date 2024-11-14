@@ -16,6 +16,8 @@ enum uint_16 BehaviorID {
   Wait_TestInjectable,
 
   // devBehaviors
+  CubeDrive,
+  CubeDriveCoordinator,
   AcousticTestMode,
   DevBaseBehavior,
   DevBatteryLogging,
@@ -32,30 +34,13 @@ enum uint_16 BehaviorID {
   DevTestConnectToCube,
   DevTestPersonDetectorBehavior,
   DevTestPromptUser,
+  DevTestSpriteBoxRemaps,
   DevTouchDataCollection,
   DevTurnInPlaceTest,
   DevViewCubeBackpackLights,
   DockingTestSimple,
   FactoryCentroidExtractor,
   LiftLoadTest,
-
-  // devBehaviors/playpen
-  PlaypenCameraCalibration,
-  PlaypenDistanceSensor100mm,
-  PlaypenDistanceSensor300mm,
-  PlaypenDistanceSensor80mm,
-  PlaypenDistanceSensorCalib80mm,
-  PlaypenDriftCheck,
-  PlaypenDriveForwards,
-  PlaypenEndChecks,
-  PlaypenInitChecks,
-  PlaypenMotorCalibration,
-  PlaypenPickupCube,
-  PlaypenSoundCheck,
-  PlaypenTest,
-  PlaypenWaitToStart,
-
-  // devBehaviors
   PowerSaveStressTest,
   PowerSaveTest,
   PuzzleMaze,
@@ -193,6 +178,7 @@ enum uint_16 BehaviorID {
 
   // victorBehaviorTree/highLevelDelegates/heldInPalm
   ReactToJoltInPalm,
+  ForceStuckOnPalmEdge,
   HeldInPalmDispatcher,
   HeldInPalmResponses,
   InitialHeldInPalmReaction,
@@ -201,14 +187,14 @@ enum uint_16 BehaviorID {
   LookInPlaceHeadDownRelaxed,
   LookInPlaceHeadUpInPalm,
   LookingNervousInPalmAnim,
-  NestleWhileHeldInPalmAnim,
+  NestlingAndSleepingInPalmDispatcher,
+  ReactToPalmEdge,
   ReactToPalmTilt,
   ReactToPickupFromPalm,
   ReactToPutDownFromPalm,
   ReactToPutDownFromPalmAnimSelector,
   SleepWhileHeldInPalm,
-  SleepWhileHeldInPalmLoop,
-  WakeGentlyFromHeldInPalmSleep,
+  StuckOnPalmEdge,
 
   // victorBehaviorTree/highLevelDelegates
   InitialPickupAnimation,
@@ -350,7 +336,6 @@ enum uint_16 BehaviorID {
 
   // victorBehaviorTree/movement
   MovementBackward,
-  MovementForward,
   MovementTurnAround,
   MovementTurnLeft,
   MovementTurnRight,
@@ -397,11 +382,10 @@ enum uint_16 BehaviorID {
   // victorBehaviorTree/reactions
   AskForHelp,
   AskForHelpOnSide,
-  BasicVoiceCommands,
   CheckForAndReactToHand,
   ForceStuckOnEdge,
-  InterruptingVoiceReactions,
   MandatoryPhysicalReactions,
+  OptionalReactions,
   ProceduralTurnToMicDirection,
   ReactToAbuse,
   ReactToAffirmative,
@@ -413,7 +397,6 @@ enum uint_16 BehaviorID {
   ReactToGoodBye,
   ReactToGoodMorning,
   ReactToHand,
-  ReactToHello,
   ReactToLove,
   ReactToMotorCalibration,
   ReactToNegative,
@@ -433,8 +416,10 @@ enum uint_16 BehaviorID {
   ReactToUncalibratedHeadAndLift,
   ReactToUnexpectedMovement,
   ReactToUnexpectedMovementInAir,
+  SimpleVoiceResponses,
   StuckOnEdge,
   TriggerWordWithoutIntent,
+  VoiceFeatures,
 
   // victorBehaviorTree
   ResetSafely,

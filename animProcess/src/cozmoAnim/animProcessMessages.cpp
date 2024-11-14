@@ -40,7 +40,6 @@
 #include "clad/robotInterface/messageEngineToRobotTag.h"
 #include "clad/robotInterface/messageRobotToEngine_sendAnimToEngine_helper.h"
 #include "clad/robotInterface/messageEngineToRobot_sendAnimToRobot_helper.h"
-#include "clad/types/tofTypes.h"
 
 #include "anki/cozmo/shared/cozmoConfig.h"
 #include "anki/cozmo/shared/factory/emrHelper.h"
@@ -95,7 +94,7 @@ namespace {
 
   // Whether or not we have already told the boot anim to stop
   bool _bootAnimStopped = false;
-  
+
 #if REMOTE_CONSOLE_ENABLED
   Anki::Util::Dispatch::Queue* _dispatchQueue = nullptr;
 
@@ -242,8 +241,13 @@ void Process_playAnim(const Anki::Vector::RobotInterface::PlayAnim& msg)
            animName.c_str(), msg.tag);
 
   const bool interruptRunning = true;
-  const bool overrideEyes = !msg.renderInEyeHue;
-  _animStreamer->SetStreamingAnimation(animName, msg.tag, msg.numLoops, msg.startAt_ms, interruptRunning, overrideEyes, msg.renderInEyeHue);
+  const bool overrideAllSpritesToEyeHue = msg.renderInEyeHue;
+  _animStreamer->SetStreamingAnimation(animName,
+                                       msg.tag,
+                                       msg.numLoops,
+                                       msg.startAt_ms,
+                                       interruptRunning,
+                                       overrideAllSpritesToEyeHue);
 }
 
 void Process_abortAnimation(const Anki::Vector::RobotInterface::AbortAnimation& msg)
@@ -284,34 +288,31 @@ void Process_displayFaceImageRGBChunk(const Anki::Vector::RobotInterface::Displa
   _animStreamer->Process_displayFaceImageChunk(msg);
 }
 
-void Process_displayCompositeImageChunk(const Anki::Vector::RobotInterface::DisplayCompositeImageChunk& msg)
+void Process_playAnimWithSpriteBoxRemaps(const Anki::Vector::RobotInterface::PlayAnimWithSpriteBoxRemaps& msg)
 {
-  _animStreamer->Process_displayCompositeImageChunk(msg);
+  _animStreamer->Process_playAnimWithSpriteBoxRemaps(msg);
 }
 
-void Process_updateCompositeImage(const Anki::Vector::RobotInterface::UpdateCompositeImage& msg)
+void Process_playAnimWithSpriteBoxKeyFrames(const Anki::Vector::RobotInterface::PlayAnimWithSpriteBoxKeyFrames& msg)
 {
-  _animStreamer->Process_updateCompositeImage(msg);
+  _animStreamer->Process_playAnimWithSpriteBoxKeyFrames(msg);
 }
 
-void Process_playCompositeAnimation(const Anki::Vector::RobotInterface::PlayCompositeAnimation& msg)
+void Process_addSpriteBoxKeyFrames(const Anki::Vector::RobotInterface::AddSpriteBoxKeyFrames& msg)
 {
-  const std::string animName(msg.animName, msg.animName_length);
-
-  _animStreamer->Process_playCompositeAnimation(animName, msg.tag);
+  _animStreamer->Process_addSpriteBoxKeyFrames(msg);
 }
-
 
 void Process_enableKeepFaceAlive(const Anki::Vector::RobotInterface::EnableKeepFaceAlive& msg)
 {
   _animStreamer->EnableKeepFaceAlive(msg.enable, msg.disableTimeout_ms);
 }
-  
+
 void Process_setKeepFaceAliveFocus(const Anki::Vector::RobotInterface::SetKeepFaceAliveFocus& msg)
 {
   _animStreamer->SetKeepFaceAliveFocus(msg.enable);
 }
-  
+
 void Process_addOrUpdateEyeShift(const Anki::Vector::RobotInterface::AddOrUpdateEyeShift& msg)
 {
   _animStreamer->ProcessAddOrUpdateEyeShift(msg);
@@ -432,7 +433,7 @@ void Process_setTriggerWordResponse(const Anki::Vector::RobotInterface::SetTrigg
 
   showStreamStateManager->SetTriggerWordResponse(msg);
 }
-  
+
 void Process_setAlexaUXResponses(const Anki::Vector::RobotInterface::SetAlexaUXResponses& msg)
 {
   auto* showStreamStateManager = _context->GetShowAudioStreamStateManager();
@@ -456,7 +457,7 @@ void Process_setAlexaUsage(const Anki::Vector::RobotInterface::SetAlexaUsage& ms
     alexa->SetAlexaUsage( msg.optedIn );
   }
 }
-  
+
 void Process_setButtonWakeWord(const Anki::Vector::RobotInterface::SetButtonWakeWord& msg)
 {
   auto* micDataSystem = _context->GetMicDataSystem();
@@ -569,6 +570,12 @@ void Process_showUrlFace(const RobotInterface::ShowUrlFace& msg)
     UpdateConnectionFlow(std::move(connMsg), _animStreamer, _context);
   }
 }
+  
+void Process_exitCCScreen(const RobotInterface::ExitCCScreen& msg)
+{
+  FaceInfoScreenManager::getInstance()->ExitCCScreen(_animStreamer);
+}
+
 
 void Process_setBLEPin(const Anki::Vector::SwitchboardInterface::SetBLEPin& msg)
 {
@@ -601,7 +608,7 @@ void Process_batteryStatus(const RobotInterface::BatteryStatus& msg)
   _context->GetBackpackLightComponent()->UpdateBatteryStatus(msg);
   _context->GetMicDataSystem()->SetBatteryLowStatus(msg.isLow);
 }
-  
+
 void Process_acousticTestEnabled(const Anki::Vector::RobotInterface::AcousticTestEnabled& msg)
 {
   bool enabled = msg.enabled;
@@ -786,7 +793,7 @@ void AnimProcessMessages::ProcessMessageFromRobot(const RobotInterface::RobotToE
       {
         alexa->SetOnCharger( onChargerContacts );
       }
-      
+
     }
     break;
     case RobotInterface::RobotToEngine::Tag_stillAlive:
