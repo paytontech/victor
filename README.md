@@ -2,11 +2,14 @@
 
 Welcome to `victor`. This is the home of the Anki Vector robot's source code. Original README: [README-orig.md](/README-orig.md)
 
-## Branch Info
+Check the [wiki](https://github.com/kercre123/victor/wiki) for more information about the leak, what we can do with this, and general Vector info.
 
-This branch uses the Snowboy wake-word engine. It's reasonably fast and accurate.
+> [!WARNING]
+> **You CANNOT currently deploy this to a regular, non-unlocked bot.**
 
-The wake-word is still "hey vector".
+## Changes
+
+- The wiki includes a list of changes I made: [Changes I Made](https://github.com/kercre123/victor/wiki/Changes-I-Made)
 
 ## Building (Linux)
 
