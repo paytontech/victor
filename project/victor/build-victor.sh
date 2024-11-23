@@ -28,6 +28,8 @@ function usage() {
     echo "  -e                      export compile commands"
     echo "  -I                      ignore external dependencies"
     echo "  -S                      build static libraries"
+    echo "  -R                      enable Rust builds"
+    echo "  -r [RUST_TOOLCHAIN]     specify Rust toolchain (default: stable)"
 }
 
 #
@@ -50,8 +52,10 @@ GENERATOR=Ninja
 FEATURES=""
 DEFINES=""
 ADDITIONAL_PLATFORM_ARGS=()
+ENABLE_RUST=1
+RUST_TOOLCHAIN="stable"
 
-while getopts ":x:c:p:a:t:g:F:D:hvfdCTeISX" opt; do
+while getopts ":x:c:p:a:t:g:F:D:hvfdCTeISXRr:" opt; do
     case $opt in
         h)
             usage
@@ -116,6 +120,13 @@ while getopts ":x:c:p:a:t:g:F:D:hvfdCTeISX" opt; do
             ;;
         X)
             RM_BUILD_ASSETS=1
+            ;;
+        R)
+            ENABLE_RUST=1
+            ;;
+        r)
+            RUST_TOOLCHAIN="${OPTARG}"
+            ENABLE_RUST=1
             ;;
         :)
             echo "Option -${OPTARG} required an argument." >&2
@@ -437,6 +448,24 @@ if [ $CONFIGURE -eq 1 ]; then
 
     # Append additional platrom args
     PLATFORM_ARGS+=(${ADDITIONAL_PLATFORM_ARGS[@]})
+
+    # Add Rust-specific cmake args
+    if [ $ENABLE_RUST -eq 1 ]; then
+        RUST_ARGS=(
+            -DENABLE_RUST=ON
+            -DRUST_TOOLCHAIN=${RUST_TOOLCHAIN}
+        )
+        if [ "$PLATFORM" == "vicos" ]; then
+            RUST_ARGS+=(
+                -DRUST_TARGET_TRIPLE=armv7-unknown-linux-gnueabi
+            )
+        fi
+    else
+        RUST_ARGS=(
+            -DENABLE_RUST=OFF
+        )
+    fi
+
     $CMAKE_EXE ${TOPLEVEL} \
         ${VERBOSE_ARG} \
         -G"${GENERATOR}" \
@@ -449,7 +478,8 @@ if [ $CONFIGURE -eq 1 ]; then
         ${EXPORT_FLAGS} \
         ${FEATURE_FLAGS} \
         ${DEFINES} \
-        "${PLATFORM_ARGS[@]}"
+        "${PLATFORM_ARGS[@]}" \
+        "${RUST_ARGS[@]}"
 fi
 
 if [ $RUN_BUILD -ne 1 ]; then

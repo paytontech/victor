@@ -12,10 +12,34 @@ include(flatbuffers)
 include(protobuf)
 include(anki_build_strip)
 include(anki_build_cxx)
+include(Rust)
 
 #
 # cozmo_engine
 #
+
+if(VICOS)
+    set(RUST_TARGET_TRIPLE "armv7-unknown-linux-gnueabi")
+    set(RUST_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/rs/target/${RUST_TARGET_TRIPLE}/release/libengine.a")
+else()
+    set(RUST_TARGET_TRIPLE "")
+    set(RUST_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/rs/target/release/libengine.a")
+endif()
+
+add_rust_library(example_rust_lib
+    PATH ${CMAKE_CURRENT_SOURCE_DIR}/rs/
+    TARGET_TRIPLE ${RUST_TARGET_TRIPLE}
+    OUTPUT_FILE ${RUST_LIB_PATH}
+)
+
+# Create a CMake interface library for the Rust library
+add_library(example_rust_interface INTERFACE)
+target_include_directories(example_rust_interface
+    INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/rs/include
+)
+target_link_libraries(example_rust_interface
+    INTERFACE ${RUST_LIB_PATH}
+)
 
 # Generate c++ protobuf files
 set(PROTOBUF_CPP_PLUGIN "protocCppPlugin")
@@ -132,3 +156,7 @@ if (VICOS)
     ARCHIVE DESTINATION ${CMAKE_BINARY_DIR}/dist/lib
   )
 endif()
+
+target_link_libraries(cozmo_engine
+    PRIVATE engine_rust_interface
+)

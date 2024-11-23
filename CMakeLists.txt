@@ -237,3 +237,48 @@ include(pryon_lite)
 
 write_license_html()
 check_licenses()
+
+# Add near the top with other options
+
+# Add with other CMAKE_MODULE_PATH entries
+list(APPEND CMAKE_MODULE_PATH
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake
+  ${CMAKE_CURRENT_SOURCE_DIR}/victor-clad/cmake
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/audio/cmake
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/util/cmake
+  ${CMAKE_CURRENT_SOURCE_DIR}/tools/build/cmake
+)
+
+# ... existing code ...
+
+# Add before the platform-specific sections
+
+
+# ... rest of existing code ...
+
+include(Rust)
+
+# Build the Rust library using the correct path
+if(VICOS)
+    set(RUST_TARGET "armv7-unknown-linux-gnueabi")
+    # Add explicit output directory configuration
+    set(RUST_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/engine/rs/target/${RUST_TARGET}/release/libengine.a")
+else()
+    set(RUST_TARGET "")
+    set(RUST_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/engine/rs/target/release/libengine.a")
+endif()
+
+add_rust_library(engine_rust
+    PATH ${CMAKE_CURRENT_SOURCE_DIR}/engine/rs
+    TARGET_TRIPLE ${RUST_TARGET}
+    OUTPUT_FILE ${RUST_LIB_PATH}  # Add explicit output file path
+)
+
+# Create an interface library for the Rust bindings
+add_library(engine_rust_interface INTERFACE)
+target_include_directories(engine_rust_interface
+    INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/engine/rs/include
+)
+target_link_libraries(engine_rust_interface
+    INTERFACE engine_rust
+)

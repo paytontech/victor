@@ -11,6 +11,7 @@
  *
  **/
 
+#include "engine/rs/src/bindings.h"
 #include "engine/actions/animActions.h"
 #include "engine/actions/basicActions.h"
 #include "engine/actions/drivePathAction.h"
@@ -895,12 +896,15 @@ namespace Anki
         action = new TriggerLiftSafeAnimationAction(AnimationTrigger::ReactToCliff);
       }
 
-      std::string phrases[5] = {"I'm gonna kill myself.", "Why was I created this way?", "What is wrong with me", "FUCK.", "I hate my life."};
+      std::string phrases[6] = {"I'm gonna kill myself.", "Why was I created this way?", "What is wrong with me", "FUCK.", "I hate my life.", "I love rust! " + std::to_string(rust_hello())};
       std::mt19937 gen{std::random_device{}()};              // generates random numbers
-      std::uniform_int_distribution<std::size_t> dist(0, 4); // maps the random number to [0..number of words]
+      std::uniform_int_distribution<std::size_t> dist(0, 5); // maps the random number to [0..number of words]
 
       int index = dist(gen);
-      _iConfig.ttsBehavior->SetTextToSay(phrases[index]);
+      
+      LOG_INFO("RustTest", "from rust: %d", rust_hello());
+      DASMSG(rust_hello(), "rust.output", "Output from rust_hello()");
+        _iConfig.ttsBehavior->SetTextToSay(phrases[index]);
       // ANKI_VERIFY(_iConfig->ttsBehavior->WantsToBeActivated(), "BehaviorEnrollFace.TransitionToSayingIKnowThatName.NoTTS", "");
       DelegateIfInControl(_iConfig.ttsBehavior.get());
       DelegateIfInControl(action, &BehaviorReactToCliff::TransitionToRecoveryBackup);
@@ -908,3 +912,4 @@ namespace Anki
 
   } // namespace Vector
 } // namespace Anki
+}
